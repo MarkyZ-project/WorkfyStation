@@ -5,6 +5,7 @@ import RegisterScreen from "./components/RegisterScreen";
 import WelcomeScreen from "./components/WelcomeScreen";
 import SettingsPanel from "./components/SettingsPanel";
 
+import HomeApp from "./tools/HomeApp";
 import NoteApp from "./tools/NoteApp";
 import FoglioApp from "./tools/FoglioApp";
 import DisegnoApp from "./tools/DisegnoApp";
@@ -44,22 +45,23 @@ function getC(dark) {
 
 // ── Tools list ──
 const TOOLS = [
-  { id: "note",        label: "Note",         icon: "✏️" },
-  { id: "foglio",      label: "Foglio",        icon: "📊" },
-  { id: "disegno",     label: "Disegno",       icon: "🎨" },
-  { id: "slide",       label: "Slide",         icon: "📐" },
-  { id: "calc",        label: "Calcola",       icon: "🧮" },
-  { id: "cronometro",  label: "Cronometro",    icon: "⏱️" },
-  { id: "convertitore",label: "Convertitore",  icon: "🔄" },
-  { id: "imageeditor", label: "Editor Img",    icon: "🖼️" },
-  { id: "pdfviewer",   label: "PDF / Word",    icon: "📄" },
+  { id: "home",         label: "Home",         icon: "🏠" },
+  { id: "note",         label: "Note",         icon: "✏️" },
+  { id: "foglio",       label: "Foglio",       icon: "📊" },
+  { id: "disegno",      label: "Disegno",      icon: "🎨" },
+  { id: "slide",        label: "Slide",        icon: "📐" },
+  { id: "calc",         label: "Calcola",      icon: "🧮" },
+  { id: "cronometro",   label: "Cronometro",   icon: "⏱️" },
+  { id: "convertitore", label: "Convertitore", icon: "🔄" },
+  { id: "imageeditor",  label: "Editor Img",   icon: "🖼️" },
+  { id: "pdfviewer",    label: "PDF / Word",   icon: "📄" },
 ];
 
 // ── Main App ──
 export default function App() {
   const [screen, setScreen] = useState(() => localStorage.getItem("wfy_user") ? "app" : "register");
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("wfy_user") || "null"); } catch (e) { return null; } });
-  const [active, setActive] = useState("note");
+  const [active, setActive] = useState("home");
   const [sideOpen, setSideOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { dark, glowOn, toggleDark, toggleGlow } = useTheme();
@@ -74,6 +76,7 @@ export default function App() {
 
   const email = user?.email || "guest";
   const panels = {
+    home:         <HomeApp       c={c} user={user} onNavigate={setActive} />,
     note:         <NoteApp       email={email} c={c} />,
     foglio:       <FoglioApp     email={email} c={c} />,
     disegno:      <DisegnoApp    email={email} c={c} />,
