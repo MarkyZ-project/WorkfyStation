@@ -1,0 +1,21 @@
+{
+  "name": "WorkfyStation",
+  "short_name": "WorkfyStation",
+  "description": "La tua suite di produttività completa — Note, Foglio, Disegno, Slide, Calcolatrice e molto altro.",
+  "start_url": "/WorkfyStation/",
+  "scope": "/WorkfyStation/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0a0a",
+  "theme_color": "#ff6b9d",
+  "icons": [
+    {
+      "src": "icons.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "lang": "it"
+}
