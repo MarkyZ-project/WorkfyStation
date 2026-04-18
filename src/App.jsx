@@ -1,11 +1,13 @@
 import { useState } from "react";
 
 import Particles from "./components/Particles";
+import PWAPrompt from "./components/PWAPrompt";
 import RegisterScreen from "./components/RegisterScreen";
 import WelcomeScreen from "./components/WelcomeScreen";
 import SettingsPanel from "./components/SettingsPanel";
 
 import HomeApp from "./tools/HomeApp";
+import AIApp from "./tools/AIApp";
 import NoteApp from "./tools/NoteApp";
 import FoglioApp from "./tools/FoglioApp";
 import DisegnoApp from "./tools/DisegnoApp";
@@ -46,6 +48,7 @@ function getC(dark) {
 // ── Tools list ──
 const TOOLS = [
   { id: "home",         label: "Home",         icon: "🏠" },
+  { id: "ai",           label: "AI Assistant", icon: "🤖" },
   { id: "note",         label: "Note",         icon: "✏️" },
   { id: "foglio",       label: "Foglio",       icon: "📊" },
   { id: "disegno",      label: "Disegno",      icon: "🎨" },
@@ -76,16 +79,17 @@ export default function App() {
 
   const email = user?.email || "guest";
   const panels = {
-    home:         <HomeApp       c={c} user={user} onNavigate={setActive} />,
-    note:         <NoteApp       email={email} c={c} />,
-    foglio:       <FoglioApp     email={email} c={c} />,
-    disegno:      <DisegnoApp    email={email} c={c} />,
-    slide:        <SlideApp      email={email} c={c} />,
-    calc:         <CalcApp       c={c} />,
-    cronometro:   <CronometroApp c={c} />,
+    home:         <HomeApp        c={c} user={user} onNavigate={setActive} />,
+    ai:           <AIApp          c={c} />,
+    note:         <NoteApp        email={email} c={c} />,
+    foglio:       <FoglioApp      email={email} c={c} />,
+    disegno:      <DisegnoApp     email={email} c={c} />,
+    slide:        <SlideApp       email={email} c={c} />,
+    calc:         <CalcApp        c={c} />,
+    cronometro:   <CronometroApp  c={c} />,
     convertitore: <ConvertitoreApp c={c} />,
-    imageeditor:  <ImageEditorApp c={c} />,
-    pdfviewer:    <PdfViewerApp  c={c} />,
+    imageeditor:  <ImageEditorApp  c={c} />,
+    pdfviewer:    <PdfViewerApp    c={c} />,
   };
 
   const glowS  = (color, size) => glowOn ? `0 0 ${size}px ${color}, 0 0 ${size * 2}px ${color}` : "none";
@@ -111,6 +115,8 @@ export default function App() {
           onLogout={logout} onClose={() => setSettingsOpen(false)} c={c}
         />
       )}
+
+      <PWAPrompt c={c} />
 
       {/* Sidebar */}
       <div style={{ width: sideOpen ? 220 : 64, background: c.surface, borderRight: `1px solid ${c.border}`, display: "flex", flexDirection: "column", transition: "width .3s", overflow: "hidden", flexShrink: 0 }}>
