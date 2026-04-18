@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import Particles from "./components/Particles";
-import PWAPrompt from "./components/PWAPrompt";
+import P          <img src="/WorkfyStation/WorkfyLogo.png" alt="logo" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: 6 }} />APrompt from "./components/PWAPrompt";
 import RegisterScreen from "./components/RegisterScreen";
 import WelcomeScreen from "./components/WelcomeScreen";
 import SettingsPanel from "./components/SettingsPanel";
