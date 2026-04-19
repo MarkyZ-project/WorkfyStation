@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 
 const NEON = "#ff6b9d";
 const NEON2 = "#ff1493";
@@ -22,15 +22,7 @@ function Cover({ name, size = 180, style = {} }) {
   const color = name ? generateColor(name) : "#333";
   const initials = name ? name.slice(0, 2).toUpperCase() : "♪";
   return (
-    <div style={{
-      width: size, height: size, borderRadius: size * 0.18,
-      background: `linear-gradient(135deg, ${color}cc, ${color}44)`,
-      border: `2px solid ${color}66`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: size * 0.28, fontWeight: 700, color: "#fff",
-      boxShadow: `0 0 ${size * 0.15}px ${color}44, 0 ${size * 0.08}px ${size * 0.15}px rgba(0,0,0,0.6)`,
-      flexShrink: 0, userSelect: "none", ...style,
-    }}>
+    <div style={{ width: size, height: size, borderRadius: size * 0.18, background: `linear-gradient(135deg,${color}cc,${color}44)`, border: `2px solid ${color}66`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.28, fontWeight: 700, color: "#fff", boxShadow: `0 0 ${size*.15}px ${color}44,0 ${size*.08}px ${size*.15}px rgba(0,0,0,.6)`, flexShrink: 0, userSelect: "none", ...style }}>
       {initials}
     </div>
   );
@@ -41,130 +33,56 @@ function ProgressBar({ current, total, onChange }) {
   const pct = total ? Math.min((current / total) * 100, 100) : 0;
   const handleClick = (e) => {
     const rect = ref.current.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    onChange(ratio * total);
+    onChange(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * total);
   };
   return (
-    <div ref={ref} onClick={handleClick}
-      style={{ height: 4, borderRadius: 2, background: "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", width: "100%" }}>
+    <div ref={ref} onClick={handleClick} style={{ height: 4, borderRadius: 2, background: "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", width: "100%" }}>
       <div style={{ height: "100%", width: `${pct}%`, borderRadius: 2, background: `linear-gradient(90deg,${NEON},${NEON2})`, boxShadow: glow(NEON, 4) }} />
       <div style={{ position: "absolute", top: "50%", left: `${pct}%`, transform: "translate(-50%,-50%)", width: 12, height: 12, borderRadius: "50%", background: "#fff", boxShadow: glow(NEON, 6), pointerEvents: "none" }} />
     </div>
   );
 }
 
-export default function MusicApp({ c }) {
+export default function MusicApp({ audioState, audioRef, blobMap, c }) {
+  const {
+    songs, setSongs, playlists, setPlaylists,
+    currentId, queue, setQueue, queueIndex, setQueueIndex,
+    playing, currentTime, duration,
+    volume, setVolume, muted, setMuted,
+    shuffle, setShuffle, repeat, setRepeat,
+    playSong, togglePlay, playNext, playPrev,
+  } = audioState;
+
   const [tab, setTab] = useState("player");
-  // songs: array di {id, name} — solo metadati, senza url
-  const [songs, setSongs] = useState(() => { try { return JSON.parse(localStorage.getItem("wfy_songs_meta") || "[]"); } catch { return []; } });
-  // blobMap: {id -> objectURL} — in memoria, si perde al refresh (normale per file locali)
-  const blobMap = useRef({});
-  const [playlists, setPlaylists] = useState(() => { try { return JSON.parse(localStorage.getItem("wfy_playlists") || "[]"); } catch { return []; } });
-  const [currentId, setCurrentId] = useState(null);
-  const [queue, setQueue] = useState([]); // array di id
-  const [queueIndex, setQueueIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [muted, setMuted] = useState(false);
-  const [shuffle, setShuffle] = useState(false);
-  const [repeat, setRepeat] = useState("none");
   const [search, setSearch] = useState("");
   const [newPLName, setNewPLName] = useState("");
   const [selectedPL, setSelectedPL] = useState(null);
   const [addToPL, setAddToPL] = useState(null);
-  const audioRef = useRef();
   const fileRef = useRef();
 
-  // Salva metadati
-  useEffect(() => { localStorage.setItem("wfy_songs_meta", JSON.stringify(songs)); }, [songs]);
-  useEffect(() => { localStorage.setItem("wfy_playlists", JSON.stringify(playlists)); }, [playlists]);
+  const currentSong = songs.find(s => s.id === currentId);
+  const hasBlob = !!blobMap.current[currentId];
+  const filtered = songs.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
 
-  // Ogni volta che currentId o queue cambia, cambia src audio
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const url = blobMap.current[currentId];
-    if (!url) { audio.pause(); setPlaying(false); return; }
-    audio.src = url;
-    audio.load();
-    if (playing) audio.play().catch(() => setPlaying(false));
-  }, [currentId]);
-
-  // Volume
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume;
-  }, [volume, muted]);
-
-  // Importa file
   const importFiles = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     const newSongs = [];
     files.forEach(f => {
       const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      const url = URL.createObjectURL(f);
-      blobMap.current[id] = url;
+      blobMap.current[id] = URL.createObjectURL(f);
       newSongs.push({ id, name: f.name.replace(/\.[^.]+$/, "") });
     });
     setSongs(prev => {
       const updated = [...prev, ...newSongs];
-      // Se non c'è canzone corrente, parte la prima importata
       if (!currentId) {
-        const firstId = newSongs[0].id;
         setQueue(updated.map(s => s.id));
-        setQueueIndex(updated.findIndex(s => s.id === firstId));
-        setCurrentId(firstId);
+        setQueueIndex(0);
+        audioState.setCurrentId(newSongs[0].id);
       }
       return updated;
     });
     e.target.value = "";
-  };
-
-  // Avvia canzone
-  const playSong = (id, songList) => {
-    const list = songList || songs.map(s => s.id);
-    const idx = list.indexOf(id);
-    setQueue(list);
-    setQueueIndex(idx >= 0 ? idx : 0);
-    setCurrentId(id);
-    setPlaying(true);
-    // play viene triggerato da useEffect su currentId
-    setTimeout(() => {
-      audioRef.current?.play().catch(() => setPlaying(false));
-    }, 80);
-  };
-
-  const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio || !currentId) return;
-    if (!blobMap.current[currentId]) return;
-    if (playing) { audio.pause(); setPlaying(false); }
-    else { audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false)); }
-  };
-
-  const playNext = () => {
-    if (!queue.length) return;
-    if (repeat === "one") { audioRef.current.currentTime = 0; audioRef.current.play(); return; }
-    let next = shuffle ? Math.floor(Math.random() * queue.length) : (queueIndex + 1) % queue.length;
-    if (!shuffle && next === 0 && repeat === "none") { audioRef.current.pause(); setPlaying(false); return; }
-    setQueueIndex(next);
-    const nextId = queue[next];
-    setCurrentId(nextId);
-    setPlaying(true);
-    setTimeout(() => audioRef.current?.play().catch(() => setPlaying(false)), 80);
-  };
-
-  const playPrev = () => {
-    if (!queue.length) return;
-    if (currentTime > 3) { audioRef.current.currentTime = 0; return; }
-    const prev = (queueIndex - 1 + queue.length) % queue.length;
-    setQueueIndex(prev);
-    const prevId = queue[prev];
-    setCurrentId(prevId);
-    setPlaying(true);
-    setTimeout(() => audioRef.current?.play().catch(() => setPlaying(false)), 80);
   };
 
   const deleteSong = (id) => {
@@ -172,28 +90,22 @@ export default function MusicApp({ c }) {
     delete blobMap.current[id];
     setSongs(prev => prev.filter(s => s.id !== id));
     setPlaylists(prev => prev.map(p => ({ ...p, songs: p.songs.filter(sid => sid !== id) })));
-    if (currentId === id) { audioRef.current?.pause(); setCurrentId(null); setPlaying(false); }
+    if (currentId === id) { audioRef.current.pause(); audioState.setCurrentId(null); }
   };
 
-  // Playlist
   const createPL = () => {
     if (!newPLName.trim()) return;
-    const pl = { id: `pl_${Date.now()}`, name: newPLName.trim(), songs: [] };
-    setPlaylists(prev => [...prev, pl]);
+    setPlaylists(prev => [...prev, { id: `pl_${Date.now()}`, name: newPLName.trim(), songs: [] }]);
     setNewPLName("");
   };
 
   const addToPLFn = (plId, songId) => {
-    setPlaylists(prev => prev.map(p =>
-      p.id === plId && !p.songs.includes(songId) ? { ...p, songs: [...p.songs, songId] } : p
-    ));
+    setPlaylists(prev => prev.map(p => p.id === plId && !p.songs.includes(songId) ? { ...p, songs: [...p.songs, songId] } : p));
     setAddToPL(null);
   };
 
   const removeFromPL = (plId, songId) => {
-    setPlaylists(prev => prev.map(p =>
-      p.id === plId ? { ...p, songs: p.songs.filter(s => s !== songId) } : p
-    ));
+    setPlaylists(prev => prev.map(p => p.id === plId ? { ...p, songs: p.songs.filter(s => s !== songId) } : p));
     setSelectedPL(prev => prev ? { ...prev, songs: prev.songs.filter(s => s !== songId) } : null);
   };
 
@@ -204,17 +116,15 @@ export default function MusicApp({ c }) {
 
   const playPL = (pl) => {
     const ids = pl.songs.filter(id => blobMap.current[id]);
-    if (!ids.length) { alert("Carica prima i file audio nella libreria!"); return; }
-    setQueue(ids);
-    setQueueIndex(0);
-    setCurrentId(ids[0]);
-    setPlaying(true);
-    setTimeout(() => audioRef.current?.play().catch(() => setPlaying(false)), 80);
+    if (!ids.length) { alert("Ricarica prima i file audio nella Libreria!"); return; }
+    setQueue(ids); setQueueIndex(0);
+    audioState.setCurrentId(ids[0]);
+    setTimeout(() => audioRef.current.play().catch(() => {}), 80);
   };
 
-  const currentSong = songs.find(s => s.id === currentId);
-  const hasBlob = !!blobMap.current[currentId];
-  const filtered = songs.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+  const iBtn = (active, onClick, label, title) => (
+    <button onClick={onClick} title={title} style={{ background: "transparent", border: "none", cursor: "pointer", color: active ? NEON : "rgba(255,255,255,0.4)", fontSize: 18, padding: 8, borderRadius: 8, boxShadow: active ? glow(NEON, 4) : "none", transition: "all .2s" }}>{label}</button>
+  );
 
   const tabBtn = (id, label, icon) => (
     <button onClick={() => setTab(id)} style={{ flex: 1, padding: "10px 0", border: "none", background: "transparent", cursor: "pointer", fontSize: 12, fontWeight: tab === id ? 600 : 400, color: tab === id ? NEON : "rgba(255,255,255,0.4)", borderBottom: `2px solid ${tab === id ? NEON : "transparent"}`, transition: "all .2s", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
@@ -222,34 +132,23 @@ export default function MusicApp({ c }) {
     </button>
   );
 
-  const iBtn = (active, onClick, label, title) => (
-    <button onClick={onClick} title={title} style={{ background: "transparent", border: "none", cursor: "pointer", color: active ? NEON : "rgba(255,255,255,0.4)", fontSize: 18, padding: 8, borderRadius: 8, boxShadow: active ? glow(NEON, 4) : "none", transition: "all .2s" }}>{label}</button>
-  );
-
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0a0a0a", borderRadius: 12, overflow: "hidden", color: "#fff" }}>
       <style>{`
-        @keyframes bars { 0%,100%{height:4px} 50%{height:14px} }
-        .song-row:hover { background: rgba(255,107,157,0.08) !important; }
-        .song-row .actions { opacity: 0; transition: opacity .2s; }
-        .song-row:hover .actions { opacity: 1; }
-        input[type=range] { accent-color: ${NEON}; cursor: pointer; }
+        @keyframes bars{0%,100%{height:4px}50%{height:14px}}
+        .song-row:hover{background:rgba(255,107,157,0.08)!important;}
+        .song-row .acts{opacity:0;transition:opacity .2s;}
+        .song-row:hover .acts{opacity:1;}
+        input[type=range]{accent-color:${NEON};cursor:pointer;}
       `}</style>
 
-      <audio ref={audioRef}
-        onTimeUpdate={e => setCurrentTime(e.target.currentTime)}
-        onLoadedMetadata={e => setDuration(e.target.duration)}
-        onEnded={playNext}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-      />
       <input ref={fileRef} type="file" accept="audio/*" multiple style={{ display: "none" }} onChange={importFiles} />
 
       {/* Tabs */}
       <div style={{ display: "flex", borderBottom: "1px solid rgba(255,107,157,0.2)", background: "#111", flexShrink: 0 }}>
-        {tabBtn("player", "Player", "🎵")}
-        {tabBtn("library", "Libreria", "🎶")}
-        {tabBtn("playlists", "Playlist", "📋")}
+        {tabBtn("player","Player","🎵")}
+        {tabBtn("library","Libreria","🎶")}
+        {tabBtn("playlists","Playlist","📋")}
       </div>
 
       {/* ── PLAYER ── */}
@@ -265,40 +164,28 @@ export default function MusicApp({ c }) {
             </div>
           ) : (
             <>
-              {/* Avviso se file non caricato */}
               {!hasBlob && (
-                <div style={{ width: "100%", padding: "10px 14px", background: "rgba(255,107,157,0.1)", border: `1px solid ${NEON}`, borderRadius: 10, fontSize: 12, color: NEON, textAlign: "center", marginBottom: 8 }}>
-                  ⚠️ Ricarica il file dalla Libreria — i file audio si perdono al refresh
+                <div style={{ width: "100%", padding: "9px 12px", background: "rgba(255,107,157,0.1)", border: `1px solid ${NEON}`, borderRadius: 8, fontSize: 12, color: NEON, textAlign: "center", marginBottom: 8 }}>
+                  ⚠️ Ricarica il file dalla Libreria dopo il refresh
                 </div>
               )}
-
-              {/* Copertina */}
-              <div style={{ transition: "transform .3s", transform: playing ? "scale(1.03)" : "scale(1)" }}>
+              <div style={{ transition: "transform .3s", transform: playing ? "scale(1.04)" : "scale(1)" }}>
                 <Cover name={currentSong.name} size={190} />
               </div>
-
-              {/* Info */}
               <div style={{ textAlign: "center", width: "100%", padding: "18px 0 8px" }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", textShadow: glow(NEON, 4), marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
-                  {currentSong.name}
-                </div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", textShadow: glow(NEON, 4), marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentSong.name}</div>
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>
                   {queueIndex + 1} / {queue.length} brani
                   {repeat !== "none" && <span style={{ color: NEON, marginLeft: 8 }}>{repeat === "one" ? "🔂" : "🔁"}</span>}
                   {shuffle && <span style={{ color: NEON, marginLeft: 8 }}>🔀</span>}
                 </div>
               </div>
-
-              {/* Barra progresso */}
               <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
                 <ProgressBar current={currentTime} total={duration} onChange={t => { audioRef.current.currentTime = t; }} />
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
-                  <span>{formatTime(currentTime)}</span>
-                  <span>{formatTime(duration)}</span>
+                  <span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span>
                 </div>
               </div>
-
-              {/* Controlli */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%" }}>
                 {iBtn(shuffle, () => setShuffle(!shuffle), "🔀", "Casuale")}
                 <button onClick={playPrev} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#fff", fontSize: 30, padding: "6px 10px" }}>⏮</button>
@@ -309,15 +196,12 @@ export default function MusicApp({ c }) {
                 <button onClick={playNext} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#fff", fontSize: 30, padding: "6px 10px" }}>⏭</button>
                 {iBtn(repeat !== "none", () => setRepeat(r => r === "none" ? "all" : r === "all" ? "one" : "none"), repeat === "one" ? "🔂" : "🔁", "Ripeti")}
               </div>
-
-              {/* Volume */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
                 <button onClick={() => setMuted(!muted)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.4)", fontSize: 18 }}>
                   {muted || volume === 0 ? "🔇" : volume < 0.5 ? "🔉" : "🔊"}
                 </button>
                 <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume}
-                  onChange={e => { setVolume(Number(e.target.value)); setMuted(false); }}
-                  style={{ flex: 1 }} />
+                  onChange={e => { setVolume(Number(e.target.value)); setMuted(false); }} style={{ flex: 1 }} />
                 <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", minWidth: 32, textAlign: "right" }}>{Math.round((muted ? 0 : volume) * 100)}%</span>
               </div>
             </>
@@ -333,7 +217,6 @@ export default function MusicApp({ c }) {
               style={{ flex: 1, padding: "8px 12px", borderRadius: 20, border: "1px solid rgba(255,107,157,0.3)", background: "rgba(255,107,157,0.05)", color: "#fff", fontSize: 13, outline: "none" }} />
             <button onClick={() => fileRef.current.click()} style={{ padding: "8px 16px", borderRadius: 20, border: `1px solid ${NEON}`, background: "rgba(255,107,157,0.1)", color: NEON, cursor: "pointer", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>+ Aggiungi</button>
           </div>
-
           <div style={{ flex: 1, overflow: "auto" }}>
             {filtered.length === 0 && (
               <div style={{ padding: 32, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 14 }}>
@@ -345,42 +228,32 @@ export default function MusicApp({ c }) {
               const loaded = !!blobMap.current[song.id];
               return (
                 <div key={song.id} className="song-row"
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", cursor: "pointer", background: isCurrent ? "rgba(255,107,157,0.1)" : "transparent", borderBottom: "1px solid rgba(255,255,255,0.04)", position: "relative" }}
-                  onClick={() => loaded ? playSong(song.id) : null}>
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", cursor: loaded ? "pointer" : "default", background: isCurrent ? "rgba(255,107,157,0.1)" : "transparent", borderBottom: "1px solid rgba(255,255,255,0.04)", position: "relative" }}
+                  onClick={() => loaded && playSong(song.id)}>
                   <Cover name={song.name} size={40} style={{ borderRadius: 8, opacity: loaded ? 1 : 0.4 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: isCurrent ? 600 : 400, color: isCurrent ? NEON : loaded ? "#fff" : "rgba(255,255,255,0.35)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {song.name}
-                    </div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>
-                      {loaded ? `#${i + 1}` : "⚠️ Ricarica il file"}
-                    </div>
+                    <div style={{ fontSize: 14, fontWeight: isCurrent ? 600 : 400, color: isCurrent ? NEON : loaded ? "#fff" : "rgba(255,255,255,0.3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{song.name}</div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>{loaded ? `#${i + 1}` : "⚠️ Ricarica"}</div>
                   </div>
-                  {/* Animazione barre se in riproduzione */}
                   {isCurrent && playing && loaded && (
-                    <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 18, marginRight: 4 }}>
-                      {[0.6, 1.0, 0.8].map((d, i) => (
-                        <div key={i} style={{ width: 3, background: NEON, borderRadius: 2, animation: `bars ${d}s ease-in-out ${i * 0.15}s infinite`, height: 8 }} />
-                      ))}
+                    <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 18 }}>
+                      {[0.6,1.0,0.8].map((d,i) => <div key={i} style={{ width: 3, background: NEON, borderRadius: 2, animation: `bars ${d}s ease-in-out ${i*.15}s infinite`, height: 8 }} />)}
                     </div>
                   )}
-                  <div className="actions" style={{ display: "flex", gap: 4 }}>
+                  <div className="acts" style={{ display: "flex", gap: 4 }}>
                     <button onClick={e => { e.stopPropagation(); setAddToPL(addToPL === song.id ? null : song.id); }}
                       style={{ background: "rgba(255,107,157,0.1)", border: "1px solid rgba(255,107,157,0.3)", borderRadius: 6, padding: "4px 8px", color: NEON, cursor: "pointer", fontSize: 11 }}>+PL</button>
                     <button onClick={e => { e.stopPropagation(); deleteSong(song.id); }}
                       style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.25)", cursor: "pointer", fontSize: 15, padding: "4px 6px" }}>✕</button>
                   </div>
-
-                  {/* Dropdown playlist */}
                   {addToPL === song.id && (
-                    <div onClick={e => e.stopPropagation()}
-                      style={{ position: "absolute", right: 60, top: 44, background: "#1a1020", border: `1px solid ${NEON}`, borderRadius: 10, padding: "8px 6px", zIndex: 20, minWidth: 160, boxShadow: glow(NEON, 10) }}>
+                    <div onClick={e => e.stopPropagation()} style={{ position: "absolute", right: 60, top: 44, background: "#1a1020", border: `1px solid ${NEON}`, borderRadius: 10, padding: "8px 6px", zIndex: 20, minWidth: 160, boxShadow: glow(NEON, 10) }}>
                       <div style={{ fontSize: 10, color: "rgba(255,107,157,0.5)", marginBottom: 6, letterSpacing: 1, padding: "0 6px" }}>AGGIUNGI A PLAYLIST</div>
                       {playlists.length === 0 && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", padding: "4px 6px" }}>Nessuna playlist</div>}
                       {playlists.map(pl => (
                         <div key={pl.id} onClick={() => addToPLFn(pl.id, song.id)}
                           style={{ padding: "7px 10px", borderRadius: 7, cursor: "pointer", fontSize: 13, color: pl.songs.includes(song.id) ? NEON : "#fff", background: pl.songs.includes(song.id) ? "rgba(255,107,157,0.1)" : "transparent" }}>
-                          {pl.songs.includes(song.id) ? "✓ " : "  "}{pl.name}
+                          {pl.songs.includes(song.id) ? "✓ " : ""}{pl.name}
                         </div>
                       ))}
                     </div>
@@ -395,94 +268,62 @@ export default function MusicApp({ c }) {
       {/* ── PLAYLIST ── */}
       {tab === "playlists" && (
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          {/* Lista playlist */}
           <div style={{ width: selectedPL ? 170 : "100%", borderRight: selectedPL ? "1px solid rgba(255,107,157,0.15)" : "none", display: "flex", flexDirection: "column", overflow: "hidden", transition: "width .3s", flexShrink: 0 }}>
-            <div style={{ padding: "10px 10px", borderBottom: "1px solid rgba(255,107,157,0.15)", display: "flex", gap: 6, flexShrink: 0 }}>
+            <div style={{ padding: "10px", borderBottom: "1px solid rgba(255,107,157,0.15)", display: "flex", gap: 6, flexShrink: 0 }}>
               <input value={newPLName} onChange={e => setNewPLName(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") createPL(); }}
                 placeholder="Nome playlist..."
                 style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,107,157,0.3)", background: "rgba(255,107,157,0.05)", color: "#fff", fontSize: 12, outline: "none" }} />
-              <button onClick={createPL}
-                style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${NEON}`, background: "rgba(255,107,157,0.15)", color: NEON, cursor: "pointer", fontSize: 16, fontWeight: 700, lineHeight: 1 }}>+</button>
+              <button onClick={createPL} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${NEON}`, background: "rgba(255,107,157,0.15)", color: NEON, cursor: "pointer", fontSize: 16, fontWeight: 700 }}>+</button>
             </div>
             <div style={{ flex: 1, overflow: "auto" }}>
-              {playlists.length === 0 && (
-                <div style={{ padding: 24, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 13 }}>
-                  Scrivi un nome e premi + per creare
-                </div>
-              )}
+              {playlists.length === 0 && <div style={{ padding: 24, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 13 }}>Scrivi un nome e premi +</div>}
               {playlists.map(pl => (
                 <div key={pl.id} onClick={() => setSelectedPL(selectedPL?.id === pl.id ? null : pl)}
-                  style={{ padding: "12px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, background: selectedPL?.id === pl.id ? "rgba(255,107,157,0.12)" : "transparent", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  style={{ padding: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, background: selectedPL?.id === pl.id ? "rgba(255,107,157,0.12)" : "transparent", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                   <div style={{ width: 38, height: 38, borderRadius: 10, background: `linear-gradient(135deg,${generateColor(pl.name)},#0a0a0a)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🎵</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: selectedPL?.id === pl.id ? NEON : "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pl.name}</div>
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>{pl.songs.length} brani</div>
                   </div>
-                  <button onClick={e => { e.stopPropagation(); deletePL(pl.id); }}
-                    style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 15 }}>✕</button>
+                  <button onClick={e => { e.stopPropagation(); deletePL(pl.id); }} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 15 }}>✕</button>
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Dettaglio playlist */}
           {selectedPL && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <div style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,107,157,0.15)", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                <button onClick={() => setSelectedPL(null)} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.35)", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>‹</button>
+                <button onClick={() => setSelectedPL(null)} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.35)", cursor: "pointer", fontSize: 20 }}>‹</button>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedPL.name}</div>
                   <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>{selectedPL.songs.length} brani</div>
                 </div>
                 {selectedPL.songs.length > 0 && (
                   <button onClick={() => playPL(playlists.find(p => p.id === selectedPL.id))}
-                    style={{ padding: "6px 12px", borderRadius: 16, border: `1px solid ${NEON}`, background: "rgba(255,107,157,0.1)", color: NEON, cursor: "pointer", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>▶ Play</button>
+                    style={{ padding: "6px 12px", borderRadius: 16, border: `1px solid ${NEON}`, background: "rgba(255,107,157,0.1)", color: NEON, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>▶ Play</button>
                 )}
               </div>
               <div style={{ flex: 1, overflow: "auto" }}>
-                {selectedPL.songs.length === 0 && (
-                  <div style={{ padding: 24, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 13 }}>
-                    Aggiungi brani dalla Libreria con il bottone +PL
-                  </div>
-                )}
+                {selectedPL.songs.length === 0 && <div style={{ padding: 24, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 13 }}>Aggiungi brani con +PL dalla Libreria</div>}
                 {selectedPL.songs.map(sid => {
                   const song = songs.find(s => s.id === sid);
                   if (!song) return null;
                   return (
                     <div key={sid} className="song-row"
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: "transparent" }}
-                      onClick={() => { const pl = playlists.find(p => p.id === selectedPL.id); playPL(pl); }}>
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", background: "transparent" }}>
                       <Cover name={song.name} size={34} style={{ borderRadius: 6 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{song.name}</div>
                       </div>
-                      <button onClick={e => { e.stopPropagation(); removeFromPL(selectedPL.id, sid); }}
-                        style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14, padding: "4px 6px" }} className="actions">✕</button>
+                      <button onClick={() => removeFromPL(selectedPL.id, sid)} className="acts"
+                        style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14, padding: "4px 6px" }}>✕</button>
                     </div>
                   );
                 })}
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Mini player (nelle altre tab) */}
-      {tab !== "player" && currentSong && (
-        <div style={{ borderTop: "1px solid rgba(255,107,157,0.2)", padding: "10px 14px", background: "#111", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-          <Cover name={currentSong.name} size={36} style={{ borderRadius: 8 }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: NEON, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 4 }}>{currentSong.name}</div>
-            <ProgressBar current={currentTime} total={duration} onChange={t => { audioRef.current.currentTime = t; }} />
-          </div>
-          <button onClick={playPrev} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#fff", fontSize: 18 }}>⏮</button>
-          <button onClick={togglePlay} disabled={!hasBlob}
-            style={{ width: 34, height: 34, borderRadius: "50%", background: hasBlob ? `linear-gradient(135deg,${NEON},${NEON2})` : "#333", border: "none", cursor: hasBlob ? "pointer" : "not-allowed", color: "#fff", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: hasBlob ? glow(NEON, 6) : "none" }}>
-            {playing ? "⏸" : "▶"}
-          </button>
-          <button onClick={playNext} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#fff", fontSize: 18 }}>⏭</button>
-          <button onClick={() => setTab("player")} style={{ background: "transparent", border: "1px solid rgba(255,107,157,0.3)", borderRadius: 6, padding: "3px 8px", color: "rgba(255,107,157,0.6)", cursor: "pointer", fontSize: 10 }}>↑</button>
         </div>
       )}
     </div>

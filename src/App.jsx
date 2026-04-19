@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 
 import RegisterScreen from "./components/RegisterScreen";
 import WelcomeScreen from "./components/WelcomeScreen";
@@ -43,13 +43,12 @@ function getC(dark) {
   };
 }
 
-// Strumenti nella navbar mobile (solo i principali)
 const MOBILE_TABS = [
-  { id: "home",         label: "Home",     icon: "🏠" },
-  { id: "note",         label: "Note",     icon: "✏️" },
-  { id: "disegno",      label: "Disegno",  icon: "🎨" },
-  { id: "calc",         label: "Calcola",  icon: "🧮" },
-  { id: "more",         label: "Altro",    icon: "⋯"  },
+  { id: "home",    label: "Home",    icon: "🏠" },
+  { id: "note",    label: "Note",    icon: "✏️" },
+  { id: "disegno", label: "Disegno", icon: "🎨" },
+  { id: "music",   label: "Musica",  icon: "🎵" },
+  { id: "more",    label: "Altro",   icon: "⋯"  },
 ];
 
 const TOOLS = [
@@ -66,32 +65,17 @@ const TOOLS = [
   { id: "music",        label: "Musica",       icon: "🎵" },
 ];
 
-// ── Drawer "Altro" per mobile ──
-function MobileDrawer({ c, active, setActive, onClose, glowOn }) {
-  const glowTx = glowOn ? `0 0 10px ${NEON}, 0 0 20px ${NEON}` : "none";
-  const otherTools = TOOLS.filter(t => !["home","note","disegno","calc"].includes(t.id));
+function MobileDrawer({ c, active, setActive, onClose }) {
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, backdropFilter: "blur(4px)" }} />
-      <div style={{
-        position: "fixed", bottom: 64, left: 0, right: 0, zIndex: 301,
-        background: c.bg === "#0a0a0a" ? "#13101a" : "#fff",
-        border: `1px solid ${c.border}`, borderRadius: "20px 20px 0 0",
-        padding: "20px 16px 16px",
-        animation: "slideUp .3s cubic-bezier(.16,1,.3,1) both",
-      }}>
+      <div style={{ position: "fixed", bottom: 64, left: 0, right: 0, zIndex: 301, background: c.bg === "#0a0a0a" ? "#13101a" : "#fff", border: `1px solid ${c.border}`, borderRadius: "20px 20px 0 0", padding: "20px 16px 16px", animation: "slideUp .3s cubic-bezier(.16,1,.3,1) both" }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: c.border, margin: "0 auto 20px" }} />
         <div style={{ fontSize: 12, color: c.textHint, letterSpacing: 1, marginBottom: 12 }}>TUTTI GLI STRUMENTI</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
           {TOOLS.map(t => (
             <button key={t.id} onClick={() => { setActive(t.id); onClose(); }}
-              style={{
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                padding: "14px 8px", borderRadius: 14, cursor: "pointer",
-                border: `1px solid ${active === t.id ? c.accent : c.border}`,
-                background: active === t.id ? c.accentBg : c.surface,
-                color: active === t.id ? c.accent : c.textMuted,
-              }}>
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "14px 8px", borderRadius: 14, cursor: "pointer", border: `1px solid ${active === t.id ? c.accent : c.border}`, background: active === t.id ? c.accentBg : c.surface, color: active === t.id ? c.accent : c.textMuted }}>
               <span style={{ fontSize: 24 }}>{t.icon}</span>
               <span style={{ fontSize: 10, fontWeight: active === t.id ? 600 : 400, textAlign: "center" }}>{t.label}</span>
             </button>
@@ -99,6 +83,45 @@ function MobileDrawer({ c, active, setActive, onClose, glowOn }) {
         </div>
       </div>
     </>
+  );
+}
+
+// ── Mini player fisso in basso (quando musica attiva e si è su altro strumento) ──
+function MiniPlayer({ audioState, audioRef, blobMap }) {
+  const { currentId, songs, playing, currentTime, duration, setPlaying, setCurrentTime } = audioState;
+  const currentSong = songs.find(s => s.id === currentId);
+  const hasBlob = !!blobMap.current[currentId];
+  if (!currentSong || !hasBlob) return null;
+
+  const pct = duration ? Math.min((currentTime / duration) * 100, 100) : 0;
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) { audio.pause(); } else { audio.play().catch(() => {}); }
+  };
+
+  return (
+    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 150, background: "rgba(10,5,15,0.97)", borderTop: `1px solid ${NEON}44`, padding: "8px 16px", display: "flex", alignItems: "center", gap: 12, backdropFilter: "blur(12px)", boxShadow: `0 -4px 20px rgba(255,107,157,0.15)` }}>
+      {/* Barra progresso */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "rgba(255,107,157,0.2)" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg,${NEON},${NEON2})`, transition: "width .1s linear" }} />
+      </div>
+      {/* Info canzone */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg,${NEON}66,${NEON2}44)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
+          {playing ? "♫" : "♪"}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentSong.name}</div>
+          <div style={{ fontSize: 10, color: "rgba(255,107,157,0.6)" }}>{playing ? "In riproduzione" : "In pausa"}</div>
+        </div>
+      </div>
+      {/* Controlli */}
+      <button onClick={togglePlay} style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg,${NEON},${NEON2})`, border: "none", cursor: "pointer", color: "#fff", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 12px ${NEON}88`, flexShrink: 0 }}>
+        {playing ? "⏸" : "▶"}
+      </button>
+    </div>
   );
 }
 
@@ -114,6 +137,109 @@ export default function App() {
   const { dark, glowOn, toggleDark, toggleGlow } = useTheme();
   const c = getC(dark);
 
+  // ── STATO AUDIO GLOBALE (persiste sempre) ──
+  const audioRef = useRef(new Audio());
+  const blobMap = useRef({});
+  const [songs, setSongs] = useState(() => { try { return JSON.parse(localStorage.getItem("wfy_songs_meta") || "[]"); } catch { return []; } });
+  const [playlists, setPlaylists] = useState(() => { try { return JSON.parse(localStorage.getItem("wfy_playlists") || "[]"); } catch { return []; } });
+  const [currentId, setCurrentId] = useState(null);
+  const [queue, setQueue] = useState([]);
+  const [queueIndex, setQueueIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState("none");
+
+  // Salva metadati
+  useEffect(() => { localStorage.setItem("wfy_songs_meta", JSON.stringify(songs)); }, [songs]);
+  useEffect(() => { localStorage.setItem("wfy_playlists", JSON.stringify(playlists)); }, [playlists]);
+
+  // Setup eventi audio globali
+  useEffect(() => {
+    const audio = audioRef.current;
+    const onTime = () => setCurrentTime(audio.currentTime);
+    const onMeta = () => setDuration(audio.duration);
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    const onEnded = () => playNext();
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("loadedmetadata", onMeta);
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("ended", onEnded);
+    return () => {
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("loadedmetadata", onMeta);
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("ended", onEnded);
+    };
+  }, [queue, queueIndex, shuffle, repeat]);
+
+  // Cambio canzone
+  useEffect(() => {
+    if (!currentId) return;
+    const url = blobMap.current[currentId];
+    if (!url) return;
+    const audio = audioRef.current;
+    audio.src = url;
+    audio.load();
+    audio.volume = muted ? 0 : volume;
+  }, [currentId]);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume;
+  }, [volume, muted]);
+
+  const playNext = () => {
+    if (!queue.length) return;
+    if (repeat === "one") { audioRef.current.currentTime = 0; audioRef.current.play(); return; }
+    let next = shuffle ? Math.floor(Math.random() * queue.length) : (queueIndex + 1) % queue.length;
+    if (!shuffle && next === 0 && repeat === "none") { setPlaying(false); return; }
+    setQueueIndex(next);
+    const nextId = queue[next];
+    setCurrentId(nextId);
+    setTimeout(() => audioRef.current.play().catch(() => {}), 80);
+  };
+
+  const playPrev = () => {
+    if (!queue.length) return;
+    if (audioRef.current.currentTime > 3) { audioRef.current.currentTime = 0; return; }
+    const prev = (queueIndex - 1 + queue.length) % queue.length;
+    setQueueIndex(prev);
+    setCurrentId(queue[prev]);
+    setTimeout(() => audioRef.current.play().catch(() => {}), 80);
+  };
+
+  const playSong = (id, list) => {
+    const ids = (list || songs.map(s => s.id));
+    const idx = ids.indexOf(id);
+    setQueue(ids);
+    setQueueIndex(idx >= 0 ? idx : 0);
+    setCurrentId(id);
+    setTimeout(() => audioRef.current.play().catch(() => {}), 80);
+  };
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!currentId || !blobMap.current[currentId]) return;
+    if (playing) audio.pause(); else audio.play().catch(() => {});
+  };
+
+  // Oggetto audioState da passare a MusicApp
+  const audioState = {
+    songs, setSongs, playlists, setPlaylists,
+    currentId, setCurrentId, queue, setQueue,
+    queueIndex, setQueueIndex, playing, setPlaying,
+    currentTime, duration, volume, setVolume,
+    muted, setMuted, shuffle, setShuffle,
+    repeat, setRepeat,
+    playSong, togglePlay, playNext, playPrev,
+  };
+
   useEffect(() => {
     const handle = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handle);
@@ -128,6 +254,8 @@ export default function App() {
   if (screen === "welcome")  return <WelcomeScreen user={user} onDone={handleWelcomeDone} />;
 
   const email = user?.email || "guest";
+  const showMiniPlayer = active !== "music" && !focusMode && currentId && blobMap.current[currentId];
+  const bottomOffset = showMiniPlayer ? (isMobile ? 120 : 56) : (isMobile ? 64 : 0);
 
   const panels = {
     home:         <HomeApp        c={c} user={user} onNavigate={setActive} />,
@@ -140,7 +268,7 @@ export default function App() {
     convertitore: <ConvertitoreApp c={c} />,
     imageeditor:  <ImageEditorApp  c={c} />,
     pdfviewer:    <PdfViewerApp    c={c} />,
-    music:        <MusicApp        c={c} />,
+    music:        <MusicApp audioState={audioState} audioRef={audioRef} blobMap={blobMap} c={c} />,
   };
 
   const glowS  = (color, size) => glowOn ? `0 0 ${size}px ${color}, 0 0 ${size * 2}px ${color}` : "none";
@@ -148,26 +276,24 @@ export default function App() {
   const currentTool = TOOLS.find(t => t.id === active);
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: c.bg, fontFamily: "'Segoe UI', sans-serif", overflow: "hidden", color: c.text }}>
+    <div style={{ display: "flex", height: "100vh", background: c.bg, fontFamily: "'Segoe UI',sans-serif", overflow: "hidden", color: c.text }}>
       <style>{`
         ${glowOn ? `@keyframes glow-pulse{0%,100%{box-shadow:0 0 8px ${NEON};}50%{box-shadow:0 0 20px ${NEON},0 0 40px ${NEON2};}}` : ""}
-        @keyframes slideUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-        .tool-btn:hover { background: ${c.accentBg} !important; }
-        .tool-btn.active { background: ${c.accentBg} !important; border-color: ${c.accent} !important; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${c.border}; border-radius: 2px; }
-        input::placeholder, textarea::placeholder { color: ${c.textHint}; }
-        button:active { transform: scale(0.97); }
+        @keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        .tool-btn:hover{background:${c.accentBg}!important;}
+        .tool-btn.active{background:${c.accentBg}!important;border-color:${c.accent}!important;}
+        ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:${c.border};border-radius:2px;}
+        input::placeholder,textarea::placeholder{color:${c.textHint};}
+        button:active{transform:scale(0.97);}
       `}</style>
 
-      {/* Modali */}
-      {settingsOpen && (
-        <SettingsPanel dark={dark} glowOn={glowOn} toggleDark={toggleDark} toggleGlow={toggleGlow} onLogout={logout} onClose={() => setSettingsOpen(false)} c={c} />
-      )}
-      {showDrawer && (
-        <MobileDrawer c={c} active={active} setActive={setActive} onClose={() => setShowDrawer(false)} glowOn={glowOn} />
+      {settingsOpen && <SettingsPanel dark={dark} glowOn={glowOn} toggleDark={toggleDark} toggleGlow={toggleGlow} onLogout={logout} onClose={() => setSettingsOpen(false)} c={c} />}
+      {showDrawer && <MobileDrawer c={c} active={active} setActive={setActive} onClose={() => setShowDrawer(false)} />}
+
+      {/* Mini player globale */}
+      {showMiniPlayer && (
+        <MiniPlayer audioState={audioState} audioRef={audioRef} blobMap={blobMap} />
       )}
 
       {/* ── SIDEBAR DESKTOP ── */}
@@ -223,34 +349,25 @@ export default function App() {
             <span style={{ fontSize: isMobile ? 18 : 22 }}>{currentTool?.icon}</span>
             <span style={{ fontSize: isMobile ? 15 : 17, fontWeight: 500, color: c.text }}>{currentTool?.label}</span>
             <div style={{ flex: 1 }} />
-            {/* Bottone Focus Mode */}
             <button onClick={() => setFocusMode(true)} title="Modalità focus"
               style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", cursor: "pointer", color: c.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}>
-              <span>⛶</span>
-              {!isMobile && <span>Focus</span>}
+              <span>⛶</span>{!isMobile && <span>Focus</span>}
             </button>
-            {isMobile && (
-              <button onClick={() => setSettingsOpen(true)} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", cursor: "pointer", color: c.textMuted, fontSize: 16 }}>⚙</button>
-            )}
+            {isMobile && <button onClick={() => setSettingsOpen(true)} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", cursor: "pointer", color: c.textMuted, fontSize: 16 }}>⚙</button>}
             {!isMobile && <div style={{ fontSize: 12, color: c.textHint }}>v1.0</div>}
           </div>
         )}
 
-        {/* ── MODALITÀ FOCUS ── */}
+        {/* Modalità Focus */}
         {focusMode && (
           <div style={{ position: "fixed", inset: 0, zIndex: 400, background: c.bg, display: "flex", flexDirection: "column", animation: "fadeIn .3s ease" }}>
-            {/* Barra sottile in alto */}
             <div style={{ display: "flex", alignItems: "center", padding: "8px 16px", gap: 10, borderBottom: `1px solid ${c.border}`, background: c.headerBg }}>
               <span style={{ fontSize: 16 }}>{currentTool?.icon}</span>
               <span style={{ fontSize: 14, fontWeight: 500, color: c.text }}>{currentTool?.label}</span>
               <div style={{ flex: 1 }} />
               <span style={{ fontSize: 11, color: c.textHint }}>Modalità Focus</span>
-              <button onClick={() => setFocusMode(false)}
-                style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${c.accent}`, background: c.accentBg, cursor: "pointer", color: c.accent, fontSize: 12, fontWeight: 500 }}>
-                ✕ Esci dal focus
-              </button>
+              <button onClick={() => setFocusMode(false)} style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${c.accent}`, background: c.accentBg, cursor: "pointer", color: c.accent, fontSize: 12, fontWeight: 500 }}>✕ Esci</button>
             </div>
-            {/* Contenuto a schermo intero */}
             <div style={{ flex: 1, padding: 20, overflow: "auto" }}>
               <div style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 16, padding: 24, height: "calc(100% - 48px)" }}>
                 {panels[active]}
@@ -261,42 +378,23 @@ export default function App() {
 
         {/* Pannello normale */}
         {!focusMode && (
-          <div style={{ flex: 1, padding: isMobile ? 10 : 20, overflow: "auto", paddingBottom: isMobile ? 74 : 20 }}>
-            <div style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 16, padding: isMobile ? 14 : 24, height: "calc(100% - 48px)" }}>
+          <div style={{ flex: 1, padding: isMobile ? 10 : 20, overflow: "auto", paddingBottom: bottomOffset }}>
+            <div style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 16, padding: isMobile ? 14 : 24, height: `calc(100% - ${isMobile ? 20 : 40}px)` }}>
               {panels[active]}
             </div>
           </div>
         )}
       </div>
 
-      {/* ── NAVBAR MOBILE IN BASSO ── */}
+      {/* ── NAVBAR MOBILE ── */}
       {isMobile && !focusMode && (
-        <div style={{
-          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
-          background: c.bg === "#0a0a0a" ? "rgba(10,10,10,0.95)" : "rgba(255,255,255,0.95)",
-          borderTop: `1px solid ${c.border}`,
-          backdropFilter: "blur(12px)",
-          display: "flex", alignItems: "center",
-          paddingBottom: "env(safe-area-inset-bottom)",
-          height: 64,
-        }}>
+        <div style={{ position: "fixed", bottom: showMiniPlayer ? 56 : 0, left: 0, right: 0, zIndex: 200, background: c.bg === "#0a0a0a" ? "rgba(10,10,10,0.95)" : "rgba(255,255,255,0.95)", borderTop: `1px solid ${c.border}`, backdropFilter: "blur(12px)", display: "flex", alignItems: "center", height: 64, paddingBottom: "env(safe-area-inset-bottom)" }}>
           {MOBILE_TABS.map(t => {
-            const isActive = t.id === "more" ? false : active === t.id;
+            const isActive = t.id !== "more" && active === t.id;
             return (
-              <button key={t.id}
-                onClick={() => t.id === "more" ? setShowDrawer(true) : setActive(t.id)}
-                style={{
-                  flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-                  justifyContent: "center", gap: 3, padding: "8px 0",
-                  border: "none", background: "transparent", cursor: "pointer",
-                  color: isActive ? c.accent : c.textMuted,
-                  transition: "all .2s",
-                }}>
-                <div style={{
-                  width: 36, height: 26, borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center",
-                  background: isActive ? c.accentBg : "transparent",
-                  transition: "all .2s",
-                }}>
+              <button key={t.id} onClick={() => t.id === "more" ? setShowDrawer(true) : setActive(t.id)}
+                style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: "8px 0", border: "none", background: "transparent", cursor: "pointer", color: isActive ? c.accent : c.textMuted, transition: "all .2s" }}>
+                <div style={{ width: 36, height: 26, borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", background: isActive ? c.accentBg : "transparent", transition: "all .2s" }}>
                   <span style={{ fontSize: 18 }}>{t.icon}</span>
                 </div>
                 <span style={{ fontSize: 10, fontWeight: isActive ? 600 : 400 }}>{t.label}</span>
