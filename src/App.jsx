@@ -15,6 +15,7 @@ import CronometroApp from "./tools/CronometroApp";
 import ConvertitoreApp from "./tools/ConvertitoreApp";
 import ImageEditorApp from "./tools/ImageEditorApp";
 import PdfViewerApp from "./tools/PdfViewerApp";
+import MusicApp from "./tools/MusicApp";
 
 const NEON = "#ff6b9d";
 const NEON2 = "#ff1493";
@@ -62,6 +63,7 @@ const TOOLS = [
   { id: "convertitore", label: "Convertitore", icon: "🔄" },
   { id: "imageeditor",  label: "Editor Img",   icon: "🖼️" },
   { id: "pdfviewer",    label: "PDF / Word",   icon: "📄" },
+  { id: "music",        label: "Musica",       icon: "🎵" },
 ];
 
 // ── Drawer "Altro" per mobile ──
@@ -138,6 +140,7 @@ export default function App() {
     convertitore: <ConvertitoreApp c={c} />,
     imageeditor:  <ImageEditorApp  c={c} />,
     pdfviewer:    <PdfViewerApp    c={c} />,
+    music:        <MusicApp        c={c} />,
   };
 
   const glowS  = (color, size) => glowOn ? `0 0 ${size}px ${color}, 0 0 ${size * 2}px ${color}` : "none";
