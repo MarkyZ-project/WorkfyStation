@@ -13,6 +13,7 @@
   },
   "homepage": "https://MarkyZ-project.github.io/WorkfyStation",
   "dependencies": {
+    "docx": "^9.6.1",
     "mammoth": "^1.12.0",
     "pdfjs-dist": "^5.6.205",
     "react": "^19.2.4",
