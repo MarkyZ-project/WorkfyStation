@@ -20,25 +20,43 @@ import MusicApp from "./tools/MusicApp";
 const NEON = "#ff6b9d";
 const NEON2 = "#ff1493";
 
-function useTheme() {
-  const [dark, setDark] = useState(() => localStorage.getItem("wfy_dark") !== "false");
-  const [glowOn, setGlowOn] = useState(() => localStorage.getItem("wfy_glow") !== "false");
-  const toggleDark = () => { const v = !dark; setDark(v); localStorage.setItem("wfy_dark", v); };
-  const toggleGlow = () => { const v = !glowOn; setGlowOn(v); localStorage.setItem("wfy_glow", v); };
-  return { dark, glowOn, toggleDark, toggleGlow };
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
 }
 
-function getC(dark) {
+function useTheme() {
+  const [dark,    setDark]    = useState(() => localStorage.getItem("wfy_dark") !== "false");
+  const [glowOn,  setGlowOn]  = useState(() => localStorage.getItem("wfy_glow") !== "false");
+  const [neon,    setNeonRaw]  = useState(() => localStorage.getItem("wfy_neon")  || "#ff6b9d");
+  const [neon2,   setNeon2Raw] = useState(() => localStorage.getItem("wfy_neon2") || "#ff1493");
+  const [bgDark,  setBgDarkRaw]  = useState(() => localStorage.getItem("wfy_bgdark")  || "#0a0a0a");
+  const [bgLight, setBgLightRaw] = useState(() => localStorage.getItem("wfy_bglight") || "#f5f5f7");
+
+  const toggleDark  = () => { const v=!dark;   setDark(v);   localStorage.setItem("wfy_dark",  v); };
+  const toggleGlow  = () => { const v=!glowOn; setGlowOn(v); localStorage.setItem("wfy_glow",  v); };
+  const setNeon     = v  => { setNeonRaw(v);   localStorage.setItem("wfy_neon",   v); };
+  const setNeon2    = v  => { setNeon2Raw(v);  localStorage.setItem("wfy_neon2",  v); };
+  const setBgDark   = v  => { setBgDarkRaw(v); localStorage.setItem("wfy_bgdark", v); };
+  const setBgLight  = v  => { setBgLightRaw(v);localStorage.setItem("wfy_bglight",v); };
+
+  return { dark, glowOn, neon, neon2, bgDark, bgLight, toggleDark, toggleGlow, setNeon, setNeon2, setBgDark, setBgLight };
+}
+
+function getC(dark, neon, neon2, bgDark, bgLight) {
+  const rgb = hexToRgb(neon);
   return dark ? {
-    bg: "#0a0a0a", surface: "rgba(255,255,255,0.02)", surface2: "#16161f",
-    border: "rgba(255,107,157,0.18)", text: "#fff",
-    textMuted: "rgba(255,255,255,0.6)", textHint: "rgba(255,107,157,0.5)",
-    accent: NEON, accentBg: "rgba(255,107,157,0.15)", accentBg2: "rgba(255,107,157,0.06)",
-    headerBg: "rgba(255,255,255,0.01)", inputBg: "rgba(255,107,157,0.05)",
+    bg: bgDark, surface: `rgba(${rgb},0.03)`, surface2: "#16161f",
+    border: `rgba(${rgb},0.2)`, text: "#fff",
+    textMuted: "rgba(255,255,255,0.6)", textHint: `rgba(${rgb},0.55)`,
+    accent: neon, accentBg: `rgba(${rgb},0.15)`, accentBg2: `rgba(${rgb},0.07)`,
+    headerBg: `rgba(${rgb},0.02)`, inputBg: `rgba(${rgb},0.05)`,
   } : {
-    bg: "#f5f5f7", surface: "#ffffff", surface2: "#f0f0f5",
+    bg: bgLight, surface: "#ffffff", surface2: "#f0f0f5",
     border: "#e0e0e0", text: "#111", textMuted: "#555", textHint: "#999",
-    accent: NEON2, accentBg: "rgba(255,20,147,0.08)", accentBg2: "rgba(255,20,147,0.04)",
+    accent: neon2, accentBg: `rgba(${hexToRgb(neon2)},0.09)`, accentBg2: `rgba(${hexToRgb(neon2)},0.04)`,
     headerBg: "#ffffff", inputBg: "#fafafa",
   };
 }
@@ -134,8 +152,8 @@ export default function App() {
   const [focusMode, setFocusMode] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const { dark, glowOn, toggleDark, toggleGlow } = useTheme();
-  const c = getC(dark);
+  const { dark, glowOn, neon, neon2, bgDark, bgLight, toggleDark, toggleGlow, setNeon, setNeon2, setBgDark, setBgLight } = useTheme();
+  const c = getC(dark, neon, neon2, bgDark, bgLight);
 
   // ── STATO AUDIO GLOBALE (persiste sempre) ──
   const audioRef = useRef(new Audio());
@@ -272,13 +290,13 @@ export default function App() {
   };
 
   const glowS  = (color, size) => glowOn ? `0 0 ${size}px ${color}, 0 0 ${size * 2}px ${color}` : "none";
-  const glowTx = glowOn ? `0 0 10px ${NEON}, 0 0 20px ${NEON}, 0 0 40px ${NEON2}` : "none";
+  const glowTx = glowOn ? `0 0 10px ${neon}, 0 0 20px ${neon}, 0 0 40px ${neon2}` : "none";
   const currentTool = TOOLS.find(t => t.id === active);
 
   return (
     <div style={{ display: "flex", height: "100vh", background: c.bg, fontFamily: "'Segoe UI',sans-serif", overflow: "hidden", color: c.text }}>
       <style>{`
-        ${glowOn ? `@keyframes glow-pulse{0%,100%{box-shadow:0 0 8px ${NEON};}50%{box-shadow:0 0 20px ${NEON},0 0 40px ${NEON2};}}` : ""}
+        ${glowOn ? `@keyframes glow-pulse{0%,100%{box-shadow:0 0 8px ${neon};}50%{box-shadow:0 0 20px ${neon},0 0 40px ${neon2};}}` : ""}
         @keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         .tool-btn:hover{background:${c.accentBg}!important;}
@@ -288,7 +306,12 @@ export default function App() {
         button:active{transform:scale(0.97);}
       `}</style>
 
-      {settingsOpen && <SettingsPanel dark={dark} glowOn={glowOn} toggleDark={toggleDark} toggleGlow={toggleGlow} onLogout={logout} onClose={() => setSettingsOpen(false)} c={c} />}
+      {settingsOpen && <SettingsPanel
+        dark={dark} glowOn={glowOn} toggleDark={toggleDark} toggleGlow={toggleGlow}
+        neon={neon} neon2={neon2} setNeon={setNeon} setNeon2={setNeon2}
+        bgDark={bgDark} setBgDark={setBgDark} bgLight={bgLight} setBgLight={setBgLight}
+        onLogout={logout} onClose={() => setSettingsOpen(false)} c={c}
+      />}
       {showDrawer && <MobileDrawer c={c} active={active} setActive={setActive} onClose={() => setShowDrawer(false)} />}
 
       {/* Mini player globale */}
