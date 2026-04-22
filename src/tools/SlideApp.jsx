@@ -481,16 +481,54 @@ export default function SlideApp({ email, c }) {
     e.target.value="";
   };
 
-  // Esporta PNG
+  // Esporta PNG usando html2canvas da CDN
   const exportPng = async () => {
-    const { default: html2canvas } = await import("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js").catch(()=>({default:null}));
-    if (!html2canvas) { alert("Libreria non disponibile. Usa screenshot manuale."); return; }
-    const el = canvasRef.current;
-    const canvas = await html2canvas(el,{scale:2,backgroundColor:sl.bg,logging:false});
-    const a = document.createElement("a");
-    a.download=`slide_${curSlide+1}.png`;
-    a.href=canvas.toDataURL("image/png");
-    a.click();
+    try {
+      // Carica html2canvas se non già presente
+      if (!window.html2canvas) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+      const el = canvasRef.current;
+      if (!el) return;
+      // Imposta zoom 1:1 temporaneamente per export di qualità
+      const prevZoom = zoom;
+      const canvas = await window.html2canvas(el, {
+        scale: 2,
+        backgroundColor: sl.bg,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+      });
+      const a = document.createElement("a");
+      a.download = `slide_${curSlide + 1}.png`;
+      a.href = canvas.toDataURL("image/png");
+      a.click();
+    } catch (err) {
+      // Fallback: usa il metodo nativo del browser
+      try {
+        const el = canvasRef.current;
+        if (!el) return;
+        const svgData = new XMLSerializer().serializeToString(el);
+        const canvas = document.createElement("canvas");
+        canvas.width = SLIDE_W * 2;
+        canvas.height = slideH * 2;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = sl.bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const a = document.createElement("a");
+        a.download = `slide_${curSlide + 1}.png`;
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+      } catch (e) {
+        alert("Errore durante l'esportazione: " + e.message);
+      }
+    }
   };
 
   // Tastiera
