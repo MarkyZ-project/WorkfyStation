@@ -4,8 +4,10 @@ import RegisterScreen from "./components/RegisterScreen";
 import WelcomeScreen from "./components/WelcomeScreen";
 import SettingsPanel from "./components/SettingsPanel";
 import PWAPrompt from "./components/PWAPrompt";
+import LockScreen from "./components/LockScreen";
 
 import HomeApp from "./tools/HomeApp";
+import PlusScreen from "./tools/PlusScreen";
 import NoteApp from "./tools/NoteApp";
 import FoglioApp from "./tools/FoglioApp";
 import DisegnoApp from "./tools/DisegnoApp";
@@ -16,7 +18,6 @@ import ConvertitoreApp from "./tools/ConvertitoreApp";
 import ImageEditorApp from "./tools/ImageEditorApp";
 import PdfViewerApp from "./tools/PdfViewerApp";
 import MusicApp from "./tools/MusicApp";
-import TodoApp from "./tools/TodoApp";
 
 const NEON = "#ff6b9d";
 const NEON2 = "#ff1493";
@@ -62,6 +63,20 @@ function getC(dark, neon, neon2, bgDark, bgLight) {
   };
 }
 
+const GOLD = "#FFD700";
+const GOLD2 = "#FFA500";
+
+function CrownIcon({ size, color }) {
+  const s = size || 16;
+  const col = color || GOLD;
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+      <path d="M3 17L5 9L9 13L12 6L15 13L19 9L21 17H3Z" fill={col} stroke={col} strokeWidth="1.5" strokeLinejoin="round"/>
+      <rect x="3" y="17" width="18" height="2.5" rx="1.25" fill={col}/>
+    </svg>
+  );
+}
+
 const MOBILE_TABS = [
   { id: "home",    label: "Home",    icon: "🏠" },
   { id: "note",    label: "Note",    icon: "✏️" },
@@ -82,7 +97,6 @@ const TOOLS = [
   { id: "imageeditor",  label: "Editor Img",   icon: "🖼️" },
   { id: "pdfviewer",    label: "PDF / Word",   icon: "📄" },
   { id: "music",        label: "Musica",       icon: "🎵" },
-  { id: "todo",         label: "Tasks",        icon: "✅" },
 ];
 
 function MobileDrawer({ c, active, setActive, onClose }) {
@@ -266,12 +280,38 @@ export default function App() {
     return () => window.removeEventListener("resize", handle);
   }, []);
 
-  const handleRegister = (u) => { setUser(u); setScreen("welcome"); };
+  const [locked, setLocked] = useState(false);
+  const [timeout, setTimeoutVal] = useState(() => parseInt(localStorage.getItem("wfy_timeout") || "0"));
+  const lastActivity = useRef(Date.now());
+
+  // Salva timeout
+  useEffect(() => { localStorage.setItem("wfy_timeout", timeout.toString()); }, [timeout]);
+
+  // Timeout inattività
+  useEffect(() => {
+    if (timeout === 0 || screen !== "app") return;
+    const reset = () => { lastActivity.current = Date.now(); };
+    const check = setInterval(() => {
+      if (Date.now() - lastActivity.current > timeout * 60 * 1000) {
+        setLocked(true);
+      }
+    }, 10000);
+    window.addEventListener("mousemove", reset);
+    window.addEventListener("keydown", reset);
+    window.addEventListener("touchstart", reset);
+    return () => {
+      clearInterval(check);
+      window.removeEventListener("mousemove", reset);
+      window.removeEventListener("keydown", reset);
+      window.removeEventListener("touchstart", reset);
+    };
+  }, [timeout, screen]);
   const handleWelcomeDone = () => setScreen("app");
   const logout = () => { localStorage.removeItem("wfy_user"); setUser(null); setScreen("register"); setSettingsOpen(false); };
 
   if (screen === "register") return <RegisterScreen onDone={handleRegister} />;
   if (screen === "welcome")  return <WelcomeScreen user={user} onDone={handleWelcomeDone} />;
+  if (locked) return <LockScreen user={user} onUnlock={() => { setLocked(false); lastActivity.current = Date.now(); }} c={c} />;
 
   const email = user?.email || "guest";
   const showMiniPlayer = active !== "music" && !focusMode && currentId && blobMap.current[currentId];
@@ -287,9 +327,8 @@ export default function App() {
     cronometro:   <CronometroApp  c={c} />,
     convertitore: <ConvertitoreApp c={c} />,
     imageeditor:  <ImageEditorApp  c={c} />,
-    pdfviewer:    <PdfViewerApp    c={c} />,
+    plus:         <PlusScreen c={c} user={user} />,
     music:        <MusicApp audioState={audioState} audioRef={audioRef} blobMap={blobMap} c={c} />,
-    todo:         <TodoApp         email={email} c={c} />,
   };
 
   const glowS  = (color, size) => glowOn ? `0 0 ${size}px ${color}, 0 0 ${size * 2}px ${color}` : "none";
@@ -337,7 +376,14 @@ export default function App() {
             <div style={{ padding: "10px 16px", borderBottom: `1px solid ${c.border}` }}>
               <div style={{ color: c.textHint, fontSize: 11, letterSpacing: 1 }}>UTENTE</div>
               <div style={{ color: c.text, fontSize: 13, marginTop: 2, fontWeight: 500 }}>{user.nome} {user.cognome}</div>
-              <div style={{ color: c.textMuted, fontSize: 11, marginTop: 1 }}>{user.email}</div>
+              <div style={{ color: c.textMuted, fontSize: 11, marginTop: 1, marginBottom: 10 }}>{user.email}</div>
+              {/* Bottone PLUS */}
+              <button onClick={() => setActive("plus")}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 10, border: `1.5px solid ${GOLD}88`, background: `linear-gradient(135deg,${GOLD}18,${GOLD2}0a)`, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, transition: "all .2s", boxShadow: active === "plus" ? `0 0 14px ${GOLD}55` : "none" }}>
+                <CrownIcon size={15} color={GOLD} />
+                <span style={{ fontSize: 12, fontWeight: 700, background: `linear-gradient(90deg,${GOLD},${GOLD2})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", flex: 1, textAlign: "left" }}>Workfy PLUS</span>
+                <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 8, background: `${GOLD}22`, color: GOLD, fontWeight: 700, letterSpacing: .5 }}>PRESTO</span>
+              </button>
             </div>
           )}
 
