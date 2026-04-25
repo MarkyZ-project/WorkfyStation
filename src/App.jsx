@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-
 import RegisterScreen from "./components/RegisterScreen";
 import WelcomeScreen from "./components/WelcomeScreen";
 import SettingsPanel from "./components/SettingsPanel";
@@ -352,7 +351,10 @@ export default function App() {
         dark={dark} glowOn={glowOn} toggleDark={toggleDark} toggleGlow={toggleGlow}
         neon={neon} neon2={neon2} setNeon={setNeon} setNeon2={setNeon2}
         bgDark={bgDark} setBgDark={setBgDark} bgLight={bgLight} setBgLight={setBgLight}
-        onLogout={logout} onClose={() => setSettingsOpen(false)} c={c}
+        timeout={timeout} setTimeout={setTimeoutVal}
+        onLogout={logout}
+        onLock={() => { setLocked(true); setSettingsOpen(false); }}
+        onClose={() => setSettingsOpen(false)} c={c}
       />}
       {showDrawer && <MobileDrawer c={c} active={active} setActive={setActive} onClose={() => setShowDrawer(false)} />}
 
