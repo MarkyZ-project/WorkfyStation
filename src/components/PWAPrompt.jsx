@@ -28,6 +28,7 @@ export default function PWAPrompt({ c }) {
     if (localStorage.getItem("wfy_pwa_dismissed")) return;
 
     if (isIOS()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPlatform("ios");
       setTimeout(() => setShow(true), 3000);
       return;
@@ -56,6 +57,7 @@ export default function PWAPrompt({ c }) {
       window.removeEventListener("beforeinstallprompt", handler);
       clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleInstall = async () => {

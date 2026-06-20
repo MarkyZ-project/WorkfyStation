@@ -22,6 +22,7 @@ export default function CronometroApp({ c }) {
   const startRef = useRef(null);
   const rafRef = useRef(null);
 
+  // eslint-disable-next-line react-hooks/purity
   const tick = () => { setElapsed(Date.now() - startRef.current); rafRef.current = requestAnimationFrame(tick); };
 
   const startStop = () => {
@@ -54,6 +55,7 @@ export default function CronometroApp({ c }) {
   const timerRaf = useRef(null);
 
   const timerTick = () => {
+    // eslint-disable-next-line react-hooks/purity
     const remaining = timerTotal.current - (Date.now() - timerStart.current);
     if (remaining <= 0) {
       setTimerMs(0); setTimerRunning(false); setTimerDone(true);

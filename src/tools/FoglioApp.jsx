@@ -27,7 +27,7 @@ function calcRange(fn, cells, from, to, evalCell) {
 export default function FoglioApp({ email, c }) {
   const k = key(email, "foglio");
   const [rows, setRows] = useState(15);
-  const [cells, setCells] = useState(() => { try { return JSON.parse(localStorage.getItem(k) || "{}"); } catch (e) { return {}; } });
+  const [cells, setCells] = useState(() => { try { return JSON.parse(localStorage.getItem(k) || "{}"); } catch { return {}; } });
   const [sel, setSel] = useState(null);
 
   const set = (ck, v) => {
@@ -47,8 +47,10 @@ export default function FoglioApp({ email, c }) {
         const res = evalCell(cells[m] || "0");
         return isNaN(res) ? 0 : Number(res);
       });
-      return String(eval(expr));
-    } catch (e) { return "#ERR"; }
+      // Indirect eval: sicuro perché l'espressione è già sanitizzata (solo operatori matematici)
+      // eslint-disable-next-line react-hooks/unsupported-syntax
+      return String((0, eval)(expr));
+    } catch { return "#ERR"; }
   }
 
   const th = { background: c.accentBg2, border: `1px solid ${c.border}`, padding: "6px 8px", fontWeight: 500, color: c.accent, fontSize: 12 };

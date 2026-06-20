@@ -90,7 +90,6 @@ const PLUS_FEATURES = [
 ];
 
 export default function PlusScreen({ c, user }) {
-  const glowGold = `0 0 10px ${GOLD}, 0 0 20px ${GOLD2}, 0 0 40px ${GOLD}`;
 
   return (
     <div style={{ height: "100%", overflow: "auto", position: "relative" }}>

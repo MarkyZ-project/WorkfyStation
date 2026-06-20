@@ -15,7 +15,6 @@ export default function PdfViewerApp({ c }) {
   const [wordHtml, setWordHtml] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [wordArrayBuffer, setWordArrayBuffer] = useState(null);
   const editorRef = useRef();
 
   const canvasRef = useRef();
@@ -49,12 +48,11 @@ export default function PdfViewerApp({ c }) {
       try {
         const mammoth = await import("mammoth");
         const arrayBuffer = await f.arrayBuffer();
-        setWordArrayBuffer(arrayBuffer);
         const result = await mammoth.convertToHtml({ arrayBuffer });
         setWordHtml(result.value);
         setLoading(false);
-      } catch (err) {
-        setError("Errore nel caricamento: " + err.message);
+      } catch (_err) {
+        setError("Errore nel caricamento: " + _err.message);
         setLoading(false);
       }
     } else {
@@ -73,7 +71,7 @@ export default function PdfViewerApp({ c }) {
       canvas.height = viewport.height;
       const ctx = canvas.getContext("2d");
       await page.render({ canvasContext: ctx, viewport }).promise;
-    } catch (err) {
+    } catch {
       setError("Errore nel rendering della pagina.");
     }
   };
@@ -82,6 +80,7 @@ export default function PdfViewerApp({ c }) {
     if (pdfDocRef.current && fileType === "pdf") {
       renderPage(pdfDocRef.current, currentPage, zoom);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, zoom]);
 
   // Scarica il documento Word modificato

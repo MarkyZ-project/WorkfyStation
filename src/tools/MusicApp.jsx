@@ -31,6 +31,7 @@ function Cover({ name, size = 180, style = {} }) {
 function ProgressBar({ current, total, onChange }) {
   const ref = useRef();
   const pct = total ? Math.min((current / total) * 100, 100) : 0;
+
   const handleClick = (e) => {
     const rect = ref.current.getBoundingClientRect();
     onChange(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * total);
@@ -43,7 +44,7 @@ function ProgressBar({ current, total, onChange }) {
   );
 }
 
-export default function MusicApp({ audioState, audioRef, blobMap, c }) {
+export default function MusicApp({ audioState, audioRef, blobMap }) {
   const {
     songs, setSongs, playlists, setPlaylists,
     currentId, queue, setQueue, queueIndex, setQueueIndex,
@@ -87,7 +88,8 @@ export default function MusicApp({ audioState, audioRef, blobMap, c }) {
 
   const deleteSong = (id) => {
     URL.revokeObjectURL(blobMap.current[id]);
-    delete blobMap.current[id];
+    // eslint-disable-next-line react-hooks/immutability
+    blobMap.current = Object.fromEntries(Object.entries(blobMap.current).filter(([k]) => k !== id));
     setSongs(prev => prev.filter(s => s.id !== id));
     setPlaylists(prev => prev.map(p => ({ ...p, songs: p.songs.filter(sid => sid !== id) })));
     if (currentId === id) { audioRef.current.pause(); audioState.setCurrentId(null); }

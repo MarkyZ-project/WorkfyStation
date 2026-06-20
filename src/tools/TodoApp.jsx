@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 
 const key = (email, name) => `${name}_${email}`;
 
@@ -51,8 +51,6 @@ export default function TodoApp({ email, c }) {
   const [expandedTask, setExpandedTask] = useState(null);
   const [showNewTask, setShowNewTask] = useState(false);
   const [showNewProject, setShowNewProject] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [editTask, setEditTask] = useState(null);
   const [dragOver, setDragOver] = useState(null);
 
   // Form nuovo task
@@ -81,7 +79,6 @@ export default function TodoApp({ email, c }) {
 
   const deleteTask = id => saveTasks(tasks.filter(t => t.id!==id));
 
-  const updateTask = (id, changes) => saveTasks(tasks.map(t => t.id===id ? {...t,...changes} : t));
 
   const toggleSubtask = (taskId, stIdx) => {
     saveTasks(tasks.map(t => {
@@ -100,12 +97,6 @@ export default function TodoApp({ email, c }) {
     saveProjects([...projects, p]);
     setPForm({ name:"", color: PROJECT_COLORS[0], icon: PROJECT_ICONS[0] });
     setShowNewProject(false);
-  };
-
-  const deleteProject = id => {
-    saveProjects(projects.filter(p => p.id!==id));
-    if (selProject===id) setSelProject("all");
-    saveTasks(tasks.map(t => t.projectId===id ? {...t, projectId:"default"} : t));
   };
 
   // ── FILTRA & ORDINA ──

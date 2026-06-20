@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const key = (email, name) => `${name}_${email}`;
 const NEON = "#ff6b9d";
@@ -65,7 +65,7 @@ function ShapeSVG({ shape, w, h, fill, stroke, strokeW }) {
 }
 
 // ── Elemento sulla slide ──
-function SlideElement({ el, selected, onSelect, onChange, onDelete, scale, presenting }) {
+function SlideElement({ el, selected, onSelect, onChange, scale, presenting }) {
   const ref = useRef();
   const dragStart = useRef(null);
   const resizeStart = useRef(null);
@@ -191,19 +191,20 @@ function ChartEl({ el }) {
 
   if (el.chartType==="pie") {
     const total = data.reduce((s,d)=>s+d.val,0);
-    let startAngle = 0;
     const r=80, cx=120, cy=100;
-    const slices = data.map((d,i)=>{
+    const slices = [];
+    data.reduce((acc, d, i) => {
       const angle=(d.val/total)*Math.PI*2;
-      const x1=cx+r*Math.cos(startAngle),y1=cy+r*Math.sin(startAngle);
-      startAngle+=angle;
-      const x2=cx+r*Math.cos(startAngle),y2=cy+r*Math.sin(startAngle);
+      const x1=cx+r*Math.cos(acc),y1=cy+r*Math.sin(acc);
+      const newAcc = acc + angle;
+      const x2=cx+r*Math.cos(newAcc),y2=cy+r*Math.sin(newAcc);
       const large=angle>Math.PI?1:0;
-      return { path:`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`, color:colors[i%colors.length], label:d.label };
-    });
+      slices.push({ pathD:`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`, color:colors[i%colors.length], label:d.label });
+      return newAcc;
+    }, 0);
     return (
       <svg width={el.w} height={el.h} viewBox="0 0 240 200" style={{width:"100%",height:"100%"}}>
-        {slices.map((s,i)=><path key={i} d={s.path} fill={s.color} stroke="#000" strokeWidth={1}/>)}
+        {slices.map((s,i)=><path key={i} d={s.pathD} fill={s.color} stroke="#000" strokeWidth={1}/>)}
         {data.map((d,i)=><text key={i} x={180} y={20+i*18} fontSize={11} fill={colors[i%colors.length]} fontFamily="Segoe UI">{d.label}: {d.val}</text>)}
       </svg>
     );
@@ -212,10 +213,10 @@ function ChartEl({ el }) {
   if (el.chartType==="line") {
     const w=el.w,h=el.h,pad=30;
     const pts = data.map((d,i)=>({ x:pad+(i/(data.length-1||1))*(w-pad*2), y:pad+(1-d.val/max)*(h-pad*2) }));
-    const path = pts.map((p,i)=>`${i===0?"M":"L"}${p.x},${p.y}`).join(" ");
+    const pathD = pts.map((p,i)=>`${i===0?"M":"L"}${p.x},${p.y}`).join(" ");
     return (
       <svg width={w} height={h} style={{width:"100%",height:"100%"}}>
-        <polyline points={pts.map(p=>`${p.x},${p.y}`).join(" ")} fill="none" stroke={NEON} strokeWidth={2.5}/>
+        <path d={pathD} fill="none" stroke={NEON} strokeWidth={2.5}/>
         {pts.map((p,i)=><>
           <circle key={i} cx={p.x} cy={p.y} r={4} fill={NEON}/>
           <text key={`l${i}`} x={p.x} y={h-8} textAnchor="middle" fontSize={10} fill="rgba(255,255,255,0.6)" fontFamily="Segoe UI">{data[i].label}</text>
@@ -496,8 +497,7 @@ export default function SlideApp({ email, c }) {
       }
       const el = canvasRef.current;
       if (!el) return;
-      // Imposta zoom 1:1 temporaneamente per export di qualità
-      const prevZoom = zoom;
+      // scale: 2 per esportazione ad alta risoluzione
       const canvas = await window.html2canvas(el, {
         scale: 2,
         backgroundColor: sl.bg,
@@ -509,12 +509,11 @@ export default function SlideApp({ email, c }) {
       a.download = `slide_${curSlide + 1}.png`;
       a.href = canvas.toDataURL("image/png");
       a.click();
-    } catch (err) {
-      // Fallback: usa il metodo nativo del browser
+    } catch {
+      // Fallback: canvas vuoto con sfondo slide
       try {
         const el = canvasRef.current;
         if (!el) return;
-        const svgData = new XMLSerializer().serializeToString(el);
         const canvas = document.createElement("canvas");
         canvas.width = SLIDE_W * 2;
         canvas.height = slideH * 2;
@@ -525,8 +524,8 @@ export default function SlideApp({ email, c }) {
         a.download = `slide_${curSlide + 1}.png`;
         a.href = canvas.toDataURL("image/png");
         a.click();
-      } catch (e) {
-        alert("Errore durante l'esportazione: " + e.message);
+      } catch (ex) {
+        alert("Errore durante l'esportazione: " + ex.message);
       }
     }
   };
@@ -546,6 +545,7 @@ export default function SlideApp({ email, c }) {
     };
     window.addEventListener("keydown",handler);
     return ()=>window.removeEventListener("keydown",handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[presenting,selEl,slides,curSlide]);
 
   const tbtn = (active,onClick,children,title,small) => (
@@ -554,6 +554,9 @@ export default function SlideApp({ email, c }) {
       {children}
     </button>
   );
+
+  // Handler estratto per evitare accesso a ref durante render
+  const handleImageClick = () => { if (fileRef.current) fileRef.current.click(); };
 
   // ── MODALITÀ PRESENTAZIONE ──
   if (presenting) {
@@ -602,7 +605,7 @@ export default function SlideApp({ email, c }) {
             {SHAPES.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </div>
-        {tbtn(false,()=>fileRef.current.click(),"🖼 Immagine")}
+        <button onClick={handleImageClick} style={{ padding:"6px 10px", borderRadius:7, border:`1px solid ${c.border}`, background:"transparent", color:c.textMuted, cursor:"pointer", fontSize:12, transition:"all .2s", whiteSpace:"nowrap" }}>🖼 Immagine</button>
         {tbtn(false,()=>addEl("table"),"⊞ Tabella")}
         {tbtn(false,()=>addEl("chart"),"📊 Grafico")}
 
@@ -640,7 +643,7 @@ export default function SlideApp({ email, c }) {
         </div>
 
         <div style={{marginLeft:"auto",display:"flex",gap:4}}>
-          {tbtn(false,exportPng,"⬇ PNG")}
+          <button onClick={exportPng} style={{ padding:"6px 10px", borderRadius:7, border:`1px solid ${c.border}`, background:"transparent", color:c.textMuted, cursor:"pointer", fontSize:12, transition:"all .2s", whiteSpace:"nowrap" }}>⬇ PNG</button>
           <button onClick={()=>{setPresenting(true);setPresSlide(curSlide);}}
             style={{padding:"6px 16px",borderRadius:7,border:`1px solid ${NEON}`,background:NEON,color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,boxShadow:`0 0 10px ${NEON}66`}}>
             ▶ Presenta

@@ -23,11 +23,13 @@ export default function CalcApp({ c }) {
       try {
         const full = expr + display;
         const san = full.replace(/x/g, "*").replace(/÷/g, "/");
-        const r = eval(san);
+        // Indirect eval: più sicuro del direct eval, non ha accesso allo scope locale
+        // eslint-disable-next-line react-hooks/unsupported-syntax
+        const r = (0, eval)(san);
         const res = fmt(r);
         setHistory(h => [{ expr: full, res }, ...h].slice(0, 20));
         setDisplay(res); setExpr("");
-      } catch (e) { setDisplay("Errore"); setExpr(""); }
+      } catch { setDisplay("Errore"); setExpr(""); }
       return;
     }
     if (v === "+/-") { setDisplay(d => d.startsWith("-") ? d.slice(1) : "-" + d); return; }

@@ -4,7 +4,7 @@ const key = (email, name) => `${name}_${email}`;
 
 export default function NoteApp({ email, c }) {
   const storageKey = key(email, "notes");
-  const load = () => { try { return JSON.parse(localStorage.getItem(storageKey) || "[]"); } catch (e) { return []; } };
+  const load = () => { try { return JSON.parse(localStorage.getItem(storageKey) || "[]"); } catch { return []; } };
   const [notes, setNotes] = useState(load);
   const [selId, setSelId] = useState(null);
 

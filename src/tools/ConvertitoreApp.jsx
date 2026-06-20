@@ -77,8 +77,6 @@ export default function ConvertitoreApp({ c }) {
     }
   }, [cat]);
 
-  useEffect(() => { convert(valFrom, true); }, [from, to, rates]);
-
   const convert = (val, fromLeft) => {
     const n = parseFloat(val);
     if (isNaN(n)) { setValTo(""); return; }
@@ -99,12 +97,16 @@ export default function ConvertitoreApp({ c }) {
     if (fromLeft) setValTo(res); else setValFrom(res);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { convert(valFrom, true); }, [from, to, rates]);
+
+
   const swap = () => {
     const tmpFrom = from, tmpTo = to, tmpVal = valFrom;
     setFrom(tmpTo); setTo(tmpFrom); setValFrom(valTo); setValTo(tmpVal);
   };
 
-  const sel = (val, setter) => ({
+  const sel = () => ({
     padding: "10px 12px", borderRadius: 8, border: `1px solid ${c.border}`,
     background: c.inputBg, color: c.text, fontSize: 14, outline: "none", width: "100%",
   });

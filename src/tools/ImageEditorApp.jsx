@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 
 const NEON = "#ff6b9d";
 

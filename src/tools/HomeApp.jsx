@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect } from "react";
 
 const NEON = "#ff6b9d";
 const NEON2 = "#ff1493";
@@ -66,7 +66,6 @@ function ParticlesBG() {
 
 export default function HomeApp({ c, user, onNavigate }) {
   const scrollRef = useRef();
-  const [scrolled, setScrolled] = useState(false);
   const dark = c.bg === "#0a0a0a";
 
   const glowText = `0 0 10px ${NEON}, 0 0 20px ${NEON}, 0 0 40px ${NEON2}`;
@@ -76,8 +75,7 @@ export default function HomeApp({ c, user, onNavigate }) {
   };
 
   return (
-    <div style={{ height: "100%", overflow: "auto", position: "relative" }}
-      onScroll={e => setScrolled(e.target.scrollTop > 60)}>
+    <div style={{ height: "100%", overflow: "auto", position: "relative" }}>
 
       <style>{`
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }

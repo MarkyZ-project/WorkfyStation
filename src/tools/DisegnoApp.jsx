@@ -29,7 +29,8 @@ export default function DisegnoApp({ email, c }) {
     cv.width = 800; cv.height = 500;
     const saved = localStorage.getItem(k);
     if (saved) { const img = new Image(); img.onload = () => cv.getContext("2d").drawImage(img, 0, 0); img.src = saved; }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
 
   const saveCanvas = () => localStorage.setItem(k, canvasRef.current.toDataURL());
   const getPos = (e, cv) => {

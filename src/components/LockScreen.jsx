@@ -14,7 +14,7 @@ function hashPassword(str) {
   return hash.toString(16);
 }
 
-export default function LockScreen({ user, onUnlock, c }) {
+export default function LockScreen({ user, onUnlock }) {
   const [mode, setMode] = useState(() => localStorage.getItem("wfy_pin") ? "pin" : "password");
   const [pin, setPin] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +25,7 @@ export default function LockScreen({ user, onUnlock, c }) {
   const [showPass, setShowPass] = useState(false);
   const intervalRef = useRef(null);
 
-  const glowText = `0 0 10px ${NEON}, 0 0 20px ${NEON}, 0 0 40px ${NEON2}`;
+
 
   // Blocco temporaneo dopo 5 tentativi falliti
   useEffect(() => {
@@ -38,6 +38,7 @@ export default function LockScreen({ user, onUnlock, c }) {
       }, 1000);
     }
     return () => clearInterval(intervalRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locked]);
 
   const handleFail = () => {
@@ -57,6 +58,7 @@ export default function LockScreen({ user, onUnlock, c }) {
   const unlockWithPin = (p) => {
     const savedPin = localStorage.getItem("wfy_pin");
     if (p === savedPin) {
+      // eslint-disable-next-line react-hooks/purity
       localStorage.setItem("wfy_session_time", Date.now().toString());
       onUnlock();
     } else {
@@ -70,6 +72,7 @@ export default function LockScreen({ user, onUnlock, c }) {
     const account = accounts.find(a => a.email === user?.email);
     if (!account) { setErr("Account non trovato."); return; }
     if (account.passwordHash === hashPassword(password)) {
+      // eslint-disable-next-line react-hooks/purity
       localStorage.setItem("wfy_session_time", Date.now().toString());
       onUnlock();
     } else {

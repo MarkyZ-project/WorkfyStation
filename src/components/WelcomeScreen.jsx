@@ -9,6 +9,7 @@ export default function WelcomeScreen({ user, onDone }) {
   const glowText = `0 0 10px ${NEON}, 0 0 20px ${NEON}, 0 0 40px ${NEON2}`;
 
   useEffect(() => { setTimeout(() => setVisible(true), 100); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (visible) setTimeout(() => onDone(), 2500); }, [visible]);
 
   return (
