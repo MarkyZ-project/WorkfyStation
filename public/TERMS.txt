@@ -1,0 +1,28 @@
+TERMINI E CONDIZIONI D'USO E INFORMATIVA SULLA PRIVACY
+Applicazione: WorkfyStation
+Data di validità: [Inserisci Data]
+
+1. LICENZA D'USO
+Il software "WorkfyStation" viene concesso in licenza d'uso e non venduto. L'acquisto garantisce all'utente una licenza d'uso personale o aziendale (a seconda del piano acquistato). 
+Non è consentito rivendere, ridistribuire, affittare o clonare il codice sorgente per creare prodotti direttamente concorrenti senza una licenza estesa esplicita rilasciata dall'autore.
+
+2. ESCLUSIONE DI GARANZIE E "AS IS"
+Il software viene fornito "così com'è" (AS IS), senza garanzie di alcun tipo, esplicite o implicite, incluse, ma non limitate a, garanzie di commerciabilità, idoneità per uno scopo particolare e non violazione dei diritti altrui.
+L'autore non garantisce in alcun modo che le funzioni contenute nel software soddisferanno le esigenze dell'utente o che il funzionamento del software sarà ininterrotto o privo di errori.
+
+3. LIMITAZIONE DI RESPONSABILITÀ (DATA LOSS E BACKUP)
+L'utente comprende e accetta esplicitamente che WorkfyStation è un'applicazione "Offline-First". 
+Tutti i dati, le note, i PDF, le impostazioni e qualsiasi altro file generato o elaborato dall'applicazione vengono salvati ESCLUSIVAMENTE all'interno dello storage locale del browser del dispositivo dell'utente (LocalStorage/IndexedDB).
+L'autore non è in alcun modo responsabile per la perdita di dati, interruzioni dell'attività lavorativa, mancati guadagni o danni diretti/indiretti derivanti dall'uso di WorkfyStation. 
+Cancellare la cronologia del browser, svuotare la cache, navigare in modalità in incognito o disinstallare il browser comporterà la perdita irreversibile dei file salvati. L'utente è l'unico e solo responsabile del backup delle proprie informazioni.
+
+4. PRIVACY POLICY E ZERO-KNOWLEDGE
+WorkfyStation è costruita per garantire la massima privacy e sicurezza (architettura Zero-Knowledge).
+Non raccogliamo, non tracciamo e non inviamo alcun dato personale, nota, documento, posizione o file audio dell'utente a server esterni, database cloud o servizi di terze parti.
+L'applicazione non dispone di un server centrale per la raccolta dei dati. Di conseguenza, l'autore non funge da "Responsabile del trattamento dei dati" (Data Processor) ai sensi del GDPR o leggi equivalenti, poiché non ha mai alcun accesso ai file dell'utente.
+
+5. RIMBORSI E RESI
+Trattandosi di un prodotto digitale scaricabile, tutte le vendite sono da considerarsi definitive e non rimborsabili, tranne nei casi previsti esplicitamente dalla legge per i beni digitali. 
+Verificare che il proprio dispositivo e browser (preferibilmente Google Chrome, Safari o browser basati su Chromium) siano compatibili prima dell'acquisto.
+
+Utilizzando o scaricando WorkfyStation, l'utente accetta implicitamente questi termini.

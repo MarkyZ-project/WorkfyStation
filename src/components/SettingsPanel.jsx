@@ -297,9 +297,13 @@ export default function SettingsPanel({
                 </div>
               </> : null; })()}
             </div>
-            <button onClick={onLogout} style={{ width:"100%", padding:"12px", borderRadius:10, border:`1px solid #ef4444`, background:"rgba(239,68,68,0.08)", color:"#ef4444", fontSize:14, cursor:"pointer", fontWeight:500 }}>
+            <button onClick={onLogout} style={{ width:"100%", padding:"12px", borderRadius:10, border:`1px solid #ef4444`, background:"rgba(239,68,68,0.08)", color:"#ef4444", fontSize:14, cursor:"pointer", fontWeight:500, marginBottom: 16 }}>
               Esci dall'account
             </button>
+            <div style={{ textAlign:"center", fontSize:11, color:c.textHint }}>
+              <a href="/WorkfyStation/TERMS.txt" target="_blank" rel="noopener noreferrer" style={{ color:c.textHint, textDecoration:"underline" }}>Termini, Condizioni & Privacy Policy</a>
+              <div style={{ marginTop:4 }}>App Offline-First. I dati rimangono solo sul tuo dispositivo.</div>
+            </div>
           </>}
         </div>
       </div>
