@@ -24,6 +24,38 @@ export default function DisegnoApp({ email, c }) {
   const startPos = useRef(null);
   const snapshot = useRef(null);
 
+  // Undo/Redo stacks
+  const undoStack = useRef([]);
+  const redoStack = useRef([]);
+  const MAX_UNDO = 30;
+
+  const pushUndo = () => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const data = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height);
+    undoStack.current.push(data);
+    if (undoStack.current.length > MAX_UNDO) undoStack.current.shift();
+    redoStack.current = [];
+  };
+
+  const undo = () => {
+    if (undoStack.current.length === 0) return;
+    const cv = canvasRef.current, ctx = cv.getContext("2d");
+    redoStack.current.push(ctx.getImageData(0, 0, cv.width, cv.height));
+    const prev = undoStack.current.pop();
+    ctx.putImageData(prev, 0, 0);
+    saveCanvas();
+  };
+
+  const redo = () => {
+    if (redoStack.current.length === 0) return;
+    const cv = canvasRef.current, ctx = cv.getContext("2d");
+    undoStack.current.push(ctx.getImageData(0, 0, cv.width, cv.height));
+    const next = redoStack.current.pop();
+    ctx.putImageData(next, 0, 0);
+    saveCanvas();
+  };
+
   useEffect(() => {
     const cv = canvasRef.current;
     cv.width = 800; cv.height = 500;
@@ -31,6 +63,17 @@ export default function DisegnoApp({ email, c }) {
     if (saved) { const img = new Image(); img.onload = () => cv.getContext("2d").drawImage(img, 0, 0); img.src = saved; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
+
+  // Keyboard shortcuts: Ctrl+Z / Ctrl+Y
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); undo(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === "y") { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const saveCanvas = () => localStorage.setItem(k, canvasRef.current.toDataURL());
   const getPos = (e, cv) => {
@@ -44,6 +87,7 @@ export default function DisegnoApp({ email, c }) {
     const cv = canvasRef.current, ctx = cv.getContext("2d");
     const p = getPos(e, cv);
     if (tool === "text") { setTextPos(p); return; }
+    pushUndo();
     snapshot.current = ctx.getImageData(0, 0, cv.width, cv.height);
     startPos.current = p;
     if (tool === "pen" || tool === "eraser") { ctx.beginPath(); ctx.moveTo(p.x, p.y); }
@@ -85,6 +129,7 @@ export default function DisegnoApp({ email, c }) {
 
   const placeText = () => {
     if (!textInput || !textPos) return;
+    pushUndo();
     const ctx = canvasRef.current.getContext("2d");
     ctx.font = `${textSize}px 'Segoe UI', sans-serif`;
     ctx.fillStyle = color; ctx.fillText(textInput, textPos.x, textPos.y);
@@ -93,14 +138,22 @@ export default function DisegnoApp({ email, c }) {
 
   const importImg = (e) => {
     const file = e.target.files[0]; if (!file) return;
+    pushUndo();
     const reader = new FileReader();
     reader.onload = ev => { const img = new Image(); img.onload = () => { canvasRef.current.getContext("2d").drawImage(img, 0, 0, 800, 500); saveCanvas(); }; img.src = ev.target.result; };
     reader.readAsDataURL(file);
   };
 
-  const clear = () => { canvasRef.current.getContext("2d").clearRect(0, 0, 800, 500); localStorage.removeItem(k); };
+  const clear = () => { pushUndo(); canvasRef.current.getContext("2d").clearRect(0, 0, 800, 500); localStorage.removeItem(k); };
 
-  const btn = (active) => ({
+  const exportPNG = () => {
+    const a = document.createElement("a");
+    a.download = "disegno_workfy.png";
+    a.href = canvasRef.current.toDataURL("image/png");
+    a.click();
+  };
+
+  const btn2 = (active) => ({
     padding: "5px 10px", borderRadius: 6,
     border: `1px solid ${active ? c.accent : c.border}`,
     background: active ? c.accentBg : "transparent",
@@ -111,13 +164,19 @@ export default function DisegnoApp({ email, c }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", gap: 8 }}>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", paddingBottom: 8, borderBottom: `1px solid ${c.border}` }}>
-        {TOOLS_LIST.map(t => <button key={t.id} onClick={() => setTool(t.id)} style={btn(tool === t.id)}>{t.label}</button>)}
+        {TOOLS_LIST.map(t => <button key={t.id} onClick={() => setTool(t.id)} style={btn2(tool === t.id)}>{t.label}</button>)}
         <div style={{ width: 1, height: 20, background: c.border, margin: "0 2px" }} />
         {DRAW_COLORS.map(cl => <div key={cl} onClick={() => setColor(cl)} style={{ width: 20, height: 20, borderRadius: "50%", background: cl, border: color === cl ? `2.5px solid ${c.accent}` : `1px solid ${c.border}`, cursor: "pointer", flexShrink: 0 }} />)}
         <div style={{ width: 1, height: 20, background: c.border, margin: "0 2px" }} />
         {DRAW_SIZES.map(s => <div key={s} onClick={() => setSize(s)} style={{ width: Math.min(s + 6, 22), height: Math.min(s + 6, 22), borderRadius: "50%", background: c.accent, opacity: size === s ? 1 : 0.3, cursor: "pointer", flexShrink: 0, minWidth: 8, minHeight: 8 }} />)}
-        <button onClick={() => fileRef.current.click()} style={{ ...btn(false), marginLeft: "auto" }}>Importa img</button>
-        <button onClick={clear} style={btn(false)}>Cancella</button>
+        <div style={{ width: 1, height: 20, background: c.border, margin: "0 2px" }} />
+        {/* Undo / Redo */}
+        <button onClick={undo} style={btn2(false)} title="Annulla (Ctrl+Z)">↩ Annulla</button>
+        <button onClick={redo} style={btn2(false)} title="Ripristina (Ctrl+Y)">↪ Ripristina</button>
+        <div style={{ width: 1, height: 20, background: c.border, margin: "0 2px" }} />
+        <button onClick={() => fileRef.current.click()} style={{ ...btn2(false) }}>Importa img</button>
+        <button onClick={exportPNG} style={{ ...btn2(false), color: c.accent, borderColor: c.accent }}>⬇ Scarica PNG</button>
+        <button onClick={clear} style={btn2(false)}>Cancella</button>
         <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={importImg} />
       </div>
       {tool === "text" && (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const NEON = "#ff6b9d";
 
@@ -15,6 +15,28 @@ export default function CalcApp({ c }) {
   const [history, setHistory] = useState([]);
   const [mode, setMode] = useState("standard");
   const [showHistory, setShowHistory] = useState(false);
+  const containerRef = useRef();
+
+  // Keyboard support
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      const k = e.key;
+      if (k >= "0" && k <= "9") press(k);
+      else if (k === "+") press("+");
+      else if (k === "-") press("-");
+      else if (k === "*") press("x");
+      else if (k === "/") { e.preventDefault(); press("÷"); }
+      else if (k === ".") press(".");
+      else if (k === "Enter" || k === "=") { e.preventDefault(); press("="); }
+      else if (k === "Backspace") press("BS");
+      else if (k === "Escape") press("AC");
+      else if (k === "%") press("%");
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
 
   const press = (v) => {
     if (v === "AC") { setDisplay("0"); setExpr(""); return; }

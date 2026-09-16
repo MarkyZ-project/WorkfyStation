@@ -2,6 +2,46 @@ import { useState, useRef, useEffect } from "react";
 
 const NEON = "#ff6b9d";
 
+// Generate beep sound via Web Audio API (no external files needed)
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = "sine";
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.8);
+    // Second beep
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.frequency.value = 1100;
+    osc2.type = "sine";
+    gain2.gain.setValueAtTime(0.4, ctx.currentTime + 0.3);
+    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.1);
+    osc2.start(ctx.currentTime + 0.3);
+    osc2.stop(ctx.currentTime + 1.1);
+    // Third beep (high)
+    const osc3 = ctx.createOscillator();
+    const gain3 = ctx.createGain();
+    osc3.connect(gain3);
+    gain3.connect(ctx.destination);
+    osc3.frequency.value = 1320;
+    osc3.type = "sine";
+    gain3.gain.setValueAtTime(0.5, ctx.currentTime + 0.6);
+    gain3.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.6);
+    osc3.start(ctx.currentTime + 0.6);
+    osc3.stop(ctx.currentTime + 1.6);
+    setTimeout(() => ctx.close(), 2000);
+  } catch { /* browser may block audio */ }
+}
+
 function pad(n) { return String(n).padStart(2, "0"); }
 
 function formatTime(ms) {
@@ -59,6 +99,7 @@ export default function CronometroApp({ c }) {
     const remaining = timerTotal.current - (Date.now() - timerStart.current);
     if (remaining <= 0) {
       setTimerMs(0); setTimerRunning(false); setTimerDone(true);
+      playBeep();
       cancelAnimationFrame(timerRaf.current); return;
     }
     setTimerMs(remaining);

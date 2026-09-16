@@ -138,6 +138,7 @@ export default function MusicApp({ audioState, audioRef, blobMap }) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0a0a0a", borderRadius: 12, overflow: "hidden", color: "#fff" }}>
       <style>{`
         @keyframes bars{0%,100%{height:4px}50%{height:14px}}
+        @keyframes eqBar{0%{height:4px}100%{height:28px}}
         .song-row:hover{background:rgba(255,107,157,0.08)!important;}
         .song-row .acts{opacity:0;transition:opacity .2s;}
         .song-row:hover .acts{opacity:1;}
@@ -206,6 +207,19 @@ export default function MusicApp({ audioState, audioRef, blobMap }) {
                   onChange={e => { setVolume(Number(e.target.value)); setMuted(false); }} style={{ flex: 1 }} />
                 <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", minWidth: 32, textAlign: "right" }}>{Math.round((muted ? 0 : volume) * 100)}%</span>
               </div>
+              {/* Equalizzatore visivo */}
+              {playing && hasBlob && (
+                <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 3, height: 32, width: "100%", marginTop: 4 }}>
+                  {Array.from({ length: 16 }, (_, i) => (
+                    <div key={i} style={{
+                      width: 4, borderRadius: 2,
+                      background: `linear-gradient(180deg, ${NEON}, ${NEON2})`,
+                      animation: `eqBar ${0.3 + Math.random() * 0.5}s ease-in-out ${Math.random() * 0.3}s infinite alternate`,
+                      opacity: 0.7 + Math.random() * 0.3,
+                    }} />
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>

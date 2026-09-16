@@ -90,12 +90,26 @@ export default function ImageEditorApp({ c }) {
       <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={loadImage} />
 
       {!image ? (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, border: `2px dashed ${c.border}`, borderRadius: 16 }}>
+        <div
+          onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.borderColor = c.accent; }}
+          onDragLeave={e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.borderColor = c.border; }}
+          onDrop={e => {
+            e.preventDefault(); e.stopPropagation();
+            e.currentTarget.style.borderColor = c.border;
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith("image/")) {
+              const reader = new FileReader();
+              reader.onload = ev => { setImage(ev.target.result); setFilters(Object.fromEntries(FILTERS.map(f => [f.id, f.default]))); setRotation(0); setFlipH(false); setFlipV(false); };
+              reader.readAsDataURL(file);
+            }
+          }}
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, border: `2px dashed ${c.border}`, borderRadius: 16, transition: "border-color .2s" }}>
           <div style={{ fontSize: 48 }}>🖼️</div>
-          <div style={{ color: c.textMuted, fontSize: 15 }}>Importa un'immagine per iniziare</div>
+          <div style={{ color: c.textMuted, fontSize: 15 }}>Trascina un'immagine qui o clicca per selezionare</div>
           <button onClick={() => fileRef.current.click()} style={{ padding: "12px 28px", borderRadius: 10, border: `1px solid ${c.accent}`, background: c.accentBg, color: c.accent, cursor: "pointer", fontSize: 15, fontWeight: 500 }}>
             Scegli immagine
           </button>
+          <div style={{ fontSize: 11, color: c.textHint, marginTop: 4 }}>Formati: JPG, PNG, WebP, GIF</div>
         </div>
       ) : (
         <div style={{ display: "flex", gap: 16, flex: 1, minHeight: 0 }}>

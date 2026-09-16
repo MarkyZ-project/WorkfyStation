@@ -348,6 +348,29 @@ export default function TodoApp({ email, c }) {
             style={{padding:"7px 16px",borderRadius:20,border:`1px solid ${NEON}`,background:NEON,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:600,whiteSpace:"nowrap",boxShadow:`0 0 12px ${NEON}66`}}>
             + Task
           </button>
+
+          {/* Esporta come testo */}
+          <button onClick={() => {
+            const lines = filtered.map(t => {
+              const check = t.completed ? "✅" : "⬜";
+              const prio = t.priority === "alta" ? "🔴" : t.priority === "media" ? "🟡" : "🟢";
+              const due = t.dueDate ? ` (scad. ${new Date(t.dueDate).toLocaleDateString("it-IT")})` : "";
+              const subs = t.subtasks?.length ? `\n   Sotto-task: ${t.subtasks.map(s => (s.done ? "✅ " : "⬜ ") + s.title).join(", ")}` : "";
+              return `${check} ${prio} ${t.title}${due}${t.desc ? "\n   " + t.desc : ""}${subs}`;
+            }).join("\n");
+            const text = `📋 WorkfyStation Tasks (${new Date().toLocaleDateString("it-IT")})\n${"─".repeat(40)}\n${lines}\n${"─".repeat(40)}\nTotale: ${filtered.length} task | Completati: ${filtered.filter(t=>t.completed).length}`;
+            navigator.clipboard.writeText(text).then(() => {
+              const b = document.createElement("div");
+              b.textContent = "✓ Lista copiata!";
+              b.style.cssText = `position:fixed;top:20px;right:20px;padding:10px 20px;border-radius:10px;background:${NEON};color:#fff;font-size:14px;font-weight:600;z-index:9999;animation:fadeIn .3s ease`;
+              document.body.appendChild(b);
+              setTimeout(() => b.remove(), 2000);
+            });
+          }}
+            style={{padding:"7px 12px",borderRadius:20,border:`1px solid ${c.border}`,background:"transparent",color:c.textMuted,cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}
+            title="Copia lista come testo">
+            📋 Esporta
+          </button>
         </div>
 
         {/* Form nuovo task */}

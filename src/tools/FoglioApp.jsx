@@ -4,6 +4,31 @@ const key = (email, name) => `${name}_${email}`;
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const COLS = 8;
 
+function exportCSV(cells, rows, evalCell) {
+  let csv = "";
+  // Header
+  csv += ["", ...Array.from({ length: COLS }, (_, i) => LETTERS[i])].join(",") + "\n";
+  for (let r = 0; r < rows; r++) {
+    const row = [r + 1];
+    for (let ci = 0; ci < COLS; ci++) {
+      const ck = `${LETTERS[ci]}${r + 1}`;
+      const val = evalCell(cells[ck] || "");
+      // Escape commas and quotes in CSV
+      const escaped = String(val).includes(",") || String(val).includes('"')
+        ? `"${String(val).replace(/"/g, '""')}"`
+        : val;
+      row.push(escaped);
+    }
+    csv += row.join(",") + "\n";
+  }
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "foglio_workfy.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 function calcRange(fn, cells, from, to, evalCell) {
   const c1 = from.charCodeAt(0) - 65, r1 = parseInt(from.slice(1)) - 1;
   const c2 = to.charCodeAt(0) - 65,   r2 = parseInt(to.slice(1)) - 1;
@@ -59,7 +84,8 @@ export default function FoglioApp({ email, c }) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", gap: 8 }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", paddingBottom: 8, borderBottom: `1px solid ${c.border}` }}>
         <span style={{ fontSize: 12, color: c.textMuted }}>Formule: =SOMMA(A1:A10) =MEDIA =MAX =MIN =CONTA</span>
-        <button onClick={() => setRows(r => r + 10)} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 7, border: `1px solid ${c.accent}`, background: c.accentBg, color: c.accent, cursor: "pointer", fontSize: 12 }}>+ 10 righe</button>
+        <button onClick={() => exportCSV(cells, rows, evalCell)} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 7, border: `1px solid ${c.accent}`, background: c.accentBg, color: c.accent, cursor: "pointer", fontSize: 12 }}>⬇ Esporta CSV</button>
+        <button onClick={() => setRows(r => r + 10)} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${c.accent}`, background: c.accentBg, color: c.accent, cursor: "pointer", fontSize: 12 }}>+ 10 righe</button>
         <button onClick={() => setRows(r => Math.max(5, r - 10))} style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, cursor: "pointer", fontSize: 12 }}>- 10 righe</button>
       </div>
       <div style={{ overflow: "auto", flex: 1 }}>

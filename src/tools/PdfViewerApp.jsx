@@ -83,6 +83,24 @@ export default function PdfViewerApp({ c }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, zoom]);
 
+  // Keyboard navigation: ← → arrows for page change
+  useEffect(() => {
+    const handler = (e) => {
+      if (!pdfDocRef.current || fileType !== "pdf") return;
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setCurrentPage(p => Math.min(p + 1, totalPages));
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setCurrentPage(p => Math.max(p - 1, 1));
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
   // Scarica il documento Word modificato
   const downloadWord = async () => {
     setSaving(true);
