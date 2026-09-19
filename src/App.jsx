@@ -419,7 +419,7 @@ const [screen, setScreen] = useState(() => {
             {sideOpen && showAppSwitcher && (
               <>
                 <div onClick={() => setShowAppSwitcher(false)} style={{ position: "fixed", inset: 0, zIndex: 999 }} />
-                <div style={{ position: "absolute", top: 60, left: 12, width: 220, background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.3)", zIndex: 1000, overflow: "hidden", animation: "fadeIn .2s ease" }}>
+                <div style={{ position: "absolute", top: 60, left: 12, width: 220, background: dark ? "#1a1a1a" : "#ffffff", border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", zIndex: 1000, overflow: "hidden", animation: "fadeIn .2s ease" }}>
                   <div style={{ padding: "8px 12px", fontSize: 11, color: c.textHint, letterSpacing: 1, borderBottom: `1px solid ${c.border}` }}>PASSA A</div>
                   
                   {/* Current App */}
