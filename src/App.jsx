@@ -441,8 +441,9 @@ const [screen, setScreen] = useState(() => {
                     onMouseEnter={(e) => e.currentTarget.style.background = c.surface2}
                     onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                   >
-                    <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg, ${GOLD}44, ${GOLD2}22)`, border: `1px solid ${GOLD}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: 14 }}>💻</span>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg, ${GOLD}44, ${GOLD2}22)`, border: `1px solid ${GOLD}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                      <img src="/WorkfyStation/WorkingCodeLogo.png" alt="WorkingCode" style={{ width: 18, height: 18, objectFit: "contain" }} 
+                           onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span style="font-size:14px">💻</span>'; }} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: c.text }}>WorkingCode <span style={{ color: GOLD }}>PLUS</span></div>
