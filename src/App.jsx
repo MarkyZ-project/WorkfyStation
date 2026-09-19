@@ -173,6 +173,7 @@ const [screen, setScreen] = useState(() => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [focusMode,    setFocusMode]    = useState(false);
   const [showDrawer,   setShowDrawer]   = useState(false);
+  const [showAppSwitcher, setShowAppSwitcher] = useState(false);
   const [isMobile,     setIsMobile]     = useState(window.innerWidth < 768);
 
   // Sicurezza
@@ -394,13 +395,63 @@ const [screen, setScreen] = useState(() => {
       {!isMobile && !focusMode && (
         <div style={{ width:sideOpen?220:64, background:c.surface, borderRight:`1px solid ${c.border}`, display:"flex", flexDirection:"column", transition:"width .3s", overflow:"hidden", flexShrink:0 }}>
 
-          {/* Header */}
-          <div style={{ padding:"16px 12px", borderBottom:`1px solid ${c.border}`, display:"flex", alignItems:"center", gap:8 }}>
+          {/* Header con Switcher App */}
+          <div style={{ padding:"16px 12px", borderBottom:`1px solid ${c.border}`, display:"flex", alignItems:"center", gap:8, position: "relative" }}>
             <div style={{ width:36, height:36, borderRadius:10, background:c.accentBg, border:`1px solid ${c.accent}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:glowS(neon,6), animation:glowOn?"glow-pulse 3s infinite":"none" }}>
               <img src="/WorkfyStation/WorkfyLogo.png" alt="logo" style={{ width:24, height:24, objectFit:"contain", borderRadius:4 }}/>
             </div>
-            {sideOpen && <div style={{ color:c.accent, fontWeight:600, fontSize:14, textShadow:glowTx, whiteSpace:"nowrap", flex:1 }}>WorkfyStation</div>}
+            
+            {sideOpen && (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                <div 
+                  onClick={() => setShowAppSwitcher(!showAppSwitcher)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}
+                >
+                  <div style={{ color:c.accent, fontWeight:600, fontSize:14, textShadow:glowTx, whiteSpace:"nowrap" }}>WorkfyStation</div>
+                  <div style={{ fontSize: 10, color: c.accent, transform: showAppSwitcher ? "rotate(180deg)" : "none", transition: "transform .2s" }}>▼</div>
+                </div>
+              </div>
+            )}
+            
             {sideOpen && <button onClick={()=>setSettingsOpen(true)} style={{ background:"transparent", border:`1px solid ${c.border}`, borderRadius:8, width:30, height:30, cursor:"pointer", color:c.textMuted, fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>⚙</button>}
+
+            {/* Popup Switcher */}
+            {sideOpen && showAppSwitcher && (
+              <>
+                <div onClick={() => setShowAppSwitcher(false)} style={{ position: "fixed", inset: 0, zIndex: 999 }} />
+                <div style={{ position: "absolute", top: 60, left: 12, width: 220, background: c.surface, border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.3)", zIndex: 1000, overflow: "hidden", animation: "fadeIn .2s ease" }}>
+                  <div style={{ padding: "8px 12px", fontSize: 11, color: c.textHint, letterSpacing: 1, borderBottom: `1px solid ${c.border}` }}>PASSA A</div>
+                  
+                  {/* Current App */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px", background: c.accentBg, cursor: "default" }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: c.accentBg, border: `1px solid ${c.accent}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <img src="/WorkfyStation/WorkfyLogo.png" alt="logo" style={{ width: 18, height: 18, objectFit: "contain" }}/>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: c.accent }}>WorkfyStation</div>
+                      <div style={{ fontSize: 10, color: c.textMuted }}>Suite di produttività</div>
+                    </div>
+                    <div style={{ fontSize: 14, color: c.accent }}>✓</div>
+                  </div>
+
+                  {/* Other App */}
+                  <div 
+                    onClick={() => { setShowAppSwitcher(false); alert("WorkingCode PLUS sarà disponibile a breve!"); }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px", cursor: "pointer", transition: "background .2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = c.surface2}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                  >
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg, ${GOLD}44, ${GOLD2}22)`, border: `1px solid ${GOLD}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: 14 }}>💻</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: c.text }}>WorkingCode <span style={{ color: GOLD }}>PLUS</span></div>
+                      <div style={{ fontSize: 10, color: c.textMuted }}>Ambiente di sviluppo</div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Utente + PLUS */}
