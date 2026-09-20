@@ -9,16 +9,16 @@ const BORDER  = "rgba(255,45,85,0.18)";
 
 // ── Language definitions ──
 const LANGUAGES = [
-  { id: "c",          label: "C",          ext: "c",    runtime: "c",          version: "10.2.0", template: '#include <stdio.h>\n\nint main() {\n    printf("Hello, World!\\n");\n    return 0;\n}' },
-  { id: "cpp",        label: "C++",        ext: "cpp",  runtime: "c++",        version: "10.2.0", template: '#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "Hello, World!" << endl;\n    return 0;\n}' },
-  { id: "python",     label: "Python",     ext: "py",   runtime: "python",     version: "3.10.0", template: 'print("Hello, World!")' },
-  { id: "javascript", label: "JavaScript", ext: "js",   runtime: "javascript", version: "18.15.0",template: 'console.log("Hello, World!");' },
-  { id: "java",       label: "Java",       ext: "java", runtime: "java",       version: "15.0.2", template: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}' },
-  { id: "typescript", label: "TypeScript", ext: "ts",   runtime: "typescript", version: "5.0.3",  template: 'const greet = (name: string): string => `Hello, ${name}!`;\nconsole.log(greet("World"));' },
-  { id: "go",         label: "Go",         ext: "go",   runtime: "go",         version: "1.16.2", template: 'package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello, World!")\n}' },
-  { id: "rust",       label: "Rust",       ext: "rs",   runtime: "rust",       version: "1.50.0", template: 'fn main() {\n    println!("Hello, World!");\n}' },
-  { id: "php",        label: "PHP",        ext: "php",  runtime: "php",        version: "8.2.3",  template: '<?php\necho "Hello, World!\\n";\n?>' },
-  { id: "csharp",     label: "C#",         ext: "cs",   runtime: "csharp",     version: "6.12.0", template: 'using System;\n\nclass Program {\n    static void Main() {\n        Console.WriteLine("Hello, World!");\n    }\n}' },
+  { id: "c",          label: "C",          ext: "c",    runtime: "c",          version: "*", template: '#include <stdio.h>\n\nint main() {\n    printf("Hello, World!\\n");\n    return 0;\n}' },
+  { id: "cpp",        label: "C++",        ext: "cpp",  runtime: "c++",        version: "*", template: '#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "Hello, World!" << endl;\n    return 0;\n}' },
+  { id: "python",     label: "Python",     ext: "py",   runtime: "python",     version: "*", template: 'print("Hello, World!")' },
+  { id: "javascript", label: "JavaScript", ext: "js",   runtime: "javascript", version: "*", template: 'console.log("Hello, World!");' },
+  { id: "java",       label: "Java",       ext: "java", runtime: "java",       version: "*", template: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}' },
+  { id: "typescript", label: "TypeScript", ext: "ts",   runtime: "typescript", version: "*", template: 'const greet = (name: string): string => `Hello, ${name}!`;\nconsole.log(greet("World"));' },
+  { id: "go",         label: "Go",         ext: "go",   runtime: "go",         version: "*", template: 'package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello, World!")\n}' },
+  { id: "rust",       label: "Rust",       ext: "rs",   runtime: "rust",       version: "*", template: 'fn main() {\n    println!("Hello, World!");\n}' },
+  { id: "php",        label: "PHP",        ext: "php",  runtime: "php",        version: "*", template: '<?php\necho "Hello, World!\\n";\n?>' },
+  { id: "csharp",     label: "C#",         ext: "cs",   runtime: "csharp",     version: "*", template: 'using System;\n\nclass Program {\n    static void Main() {\n        Console.WriteLine("Hello, World!");\n    }\n}' },
 ];
 
 const FONT_SIZES = [11, 12, 13, 14, 16, 18, 20];
@@ -237,7 +237,7 @@ export default function WorkingCodeEditor() {
   const runCode = useCallback(async () => {
     if (!activeTab || running) return;
     setRunning(true);
-    setOutput("⏳ Compilazione in corso...\n");
+    setOutput("⏳ Compilazione e avvio in corso...\n");
     setStatus("🔄 Esecuzione...");
     const start = Date.now();
     try {
@@ -250,28 +250,68 @@ export default function WorkingCodeEditor() {
           files: [{ name: `main.${lang.ext}`, content: activeTab.code }],
           stdin: stdin,
           compile_timeout: 10000,
-          run_timeout: 5000,
+          run_timeout: 10000,
         }),
       });
+
+      if (!res.ok) throw new Error(`Errore server: ${res.status}`);
+
       const data = await res.json();
       const elapsed = ((Date.now() - start) / 1000).toFixed(2);
       setRunTime(elapsed);
 
-      const compileOut = data.compile?.output || "";
-      const runOut     = data.run?.output || "";
-      const stderr     = data.run?.stderr || "";
-      const exitCode   = data.run?.code ?? "?";
+      // Compile errors (C/C++/Java)
+      const compileOut = data.compile?.output?.trim() || "";
+      const compileErr = data.compile?.stderr?.trim() || "";
+      // Runtime output
+      const runOut  = data.run?.stdout?.trim() || data.run?.output?.trim() || "";
+      const runErr  = data.run?.stderr?.trim()  || "";
+      const exitCode = data.run?.code ?? data.compile?.code ?? "?";
 
       let out = "";
-      if (compileOut) out += `── Compilatore ──\n${compileOut}\n\n`;
-      if (runOut)     out += `── Output ──\n${runOut}`;
-      if (!runOut && !compileOut) out = "(nessun output)";
-      if (stderr && stderr !== runOut) out += `\n── Errori ──\n${stderr}`;
-      out += `\n\n── Processo terminato con codice: ${exitCode} · Tempo: ${elapsed}s ──`;
+
+      // Compilation errors
+      const compileErrors = compileErr || (compileOut && exitCode !== 0 ? compileOut : "");
+      if (compileErrors) {
+        out += `❌ ERRORI DI COMPILAZIONE:\n${compileErrors}\n\n`;
+        out += `💡 Controlla la sintassi del codice e riprova.\n`;
+      } else if (compileOut && !compileErrors) {
+        // Compile warnings
+        out += `⚠️ Avvisi compilatore:\n${compileOut}\n\n`;
+      }
+
+      // Runtime output
+      if (runOut) {
+        out += `${runOut}`;
+      }
+
+      // Runtime errors
+      if (runErr && runErr !== runOut && !compileErrors) {
+        out += `\n\n⚠️ Errori runtime:\n${runErr}`;
+      }
+
+      // No output case
+      if (!runOut && !compileErrors && !runErr) {
+        out += `(il programma non ha prodotto output)\n`;
+        if (lang.id === "c" || lang.id === "cpp") {
+          out += `\n💡 Suggerimento: se il tuo programma usa scanf() o cin, inserisci i dati nel campo "⌨ Stdin" prima di eseguire.`;
+        }
+      }
+
+      // Footer
+      const ok = exitCode === 0 || exitCode === "0";
+      out += `\n\n${"─".repeat(40)}\n${ok ? "✅" : "❌"} Terminato (codice ${exitCode}) · ${elapsed}s`;
+
       setOutput(out);
-      setStatus(exitCode === 0 ? `✅ Completato in ${elapsed}s` : `❌ Errore (codice ${exitCode})`);
+      setStatus(ok ? `✅ OK in ${elapsed}s` : `❌ Uscita ${exitCode}`);
     } catch (err) {
-      setOutput(`Errore di connessione:\n${err.message}\n\nAssicurati di avere una connessione internet attiva.`);
+      setOutput(
+        `❌ Impossibile connettersi al server di esecuzione.\n\n` +
+        `Dettagli: ${err.message}\n\n` +
+        `ℹ️  WorkingCode usa un server remoto per compilare ed eseguire il codice.\n` +
+        `   A differenza di Dev-C++ (che compila sul tuo PC), qui è necessaria\n` +
+        `   una connessione internet. Verifica la connessione e riprova.`
+      );
       setStatus("❌ Errore di rete");
     }
     setRunning(false);
