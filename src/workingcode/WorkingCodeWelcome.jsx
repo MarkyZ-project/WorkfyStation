@@ -1,7 +1,8 @@
 import { useState } from "react";
 
-const ACCENT  = "#00e5ff";
-const ACCENT2 = "#7c3aed";
+const ACCENT  = "#ff2d55";
+const ACCENT2 = "#ff0020";
+const GOLD    = "#FFD700";
 
 const FEATURES = [
   {
@@ -39,38 +40,46 @@ const FEATURES = [
 const LANGUAGES = ["Python", "JavaScript", "TypeScript", "HTML/CSS", "Java", "C/C++", "Go", "Rust", "PHP", "Swift"];
 
 export default function WorkingCodeWelcome({ onEnter }) {
-  const [hovered, setHovered] = useState(null);
-
   return (
     <div style={{
       flex: 1, overflow: "auto", fontFamily: "'Segoe UI', sans-serif",
-      background: "#080810", color: "#fff",
+      background: "#080000", color: "#fff",
     }}>
       <style>{`
         @keyframes wc-fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes wc-shimmer { 0%,100%{opacity:.6} 50%{opacity:1} }
-        .wc-feat-card:hover { border-color: ${ACCENT}66 !important; background: rgba(0,229,255,0.06) !important; transform: translateY(-2px); }
+        .wc-feat-card:hover { border-color: ${ACCENT}66 !important; background: rgba(255,45,85,0.06) !important; transform: translateY(-2px); }
         .wc-feat-card { transition: all .2s !important; }
         .wc-lang-chip { transition: all .15s; }
-        .wc-lang-chip:hover { background: ${ACCENT}22 !important; border-color: ${ACCENT} !important; color: ${ACCENT} !important; }
+        .wc-lang-chip:hover { background: rgba(255,45,85,0.15) !important; border-color: ${ACCENT} !important; color: ${ACCENT} !important; }
       `}</style>
 
       {/* Hero section */}
       <div style={{
         textAlign: "center", padding: "60px 40px 40px",
-        background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${ACCENT}12 0%, transparent 70%)`,
+        background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${ACCENT}14 0%, transparent 70%)`,
         animation: "wc-fadeUp .6s ease both",
       }}>
         {/* Badge */}
         <div style={{
           display: "inline-flex", alignItems: "center", gap: 8,
           padding: "6px 16px", borderRadius: 20,
-          border: `1px solid ${ACCENT}44`, background: `${ACCENT}11`,
+          border: `1px solid ${ACCENT}55`, background: `rgba(255,45,85,0.1)`,
           fontSize: 12, color: ACCENT, fontWeight: 600, letterSpacing: 1,
           marginBottom: 28,
         }}>
           <span style={{ animation: "wc-shimmer 2s ease infinite" }}>◆</span>
-          WORKINGCODE · AMBIENTE DI SVILUPPO
+          WORKINGCODE · AMBIENTE DI SVILUPPO · GRATUITO
+        </div>
+
+        {/* Logo */}
+        <div style={{ marginBottom: 24 }}>
+          <img
+            src="/WorkfyStation/WorkingCodeLogo.png"
+            alt="WorkingCode"
+            style={{ width: 72, height: 72, objectFit: "contain", filter: `drop-shadow(0 0 16px ${ACCENT}88)` }}
+            onError={e => { e.target.style.display = "none"; }}
+          />
         </div>
 
         {/* Titolo */}
@@ -91,8 +100,10 @@ export default function WorkingCodeWelcome({ onEnter }) {
           fontSize: 16, color: "rgba(255,255,255,0.5)", maxWidth: 560, margin: "0 auto 36px",
           lineHeight: 1.7,
         }}>
-          WorkingCode è l'ambiente di sviluppo integrato pensato per <strong style={{ color: "rgba(255,255,255,0.8)" }}>programmatori, studenti e informatici</strong>.
+          WorkingCode è l'ambiente di sviluppo integrato pensato per{" "}
+          <strong style={{ color: "rgba(255,255,255,0.85)" }}>programmatori, studenti e informatici</strong>.
           Scrivi, esegui e condividi il tuo codice senza installare nulla sul dispositivo.
+          Incluso gratuitamente in WorkfyStation.
         </p>
 
         {/* CTA */}
@@ -102,17 +113,17 @@ export default function WorkingCodeWelcome({ onEnter }) {
             padding: "14px 36px", borderRadius: 30, border: "none", cursor: "pointer",
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`,
             color: "#fff", fontSize: 16, fontWeight: 700, letterSpacing: 0.5,
-            boxShadow: `0 0 24px ${ACCENT}55, 0 0 48px ${ACCENT2}33`,
+            boxShadow: `0 0 24px ${ACCENT}66, 0 0 48px ${ACCENT2}33`,
             transition: "all .2s",
           }}
-          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.04)"; e.currentTarget.style.boxShadow = `0 0 36px ${ACCENT}88`; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = `0 0 24px ${ACCENT}55`; }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.04)"; e.currentTarget.style.boxShadow = `0 0 40px ${ACCENT}aa`; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = `0 0 24px ${ACCENT}66`; }}
         >
           🚀 Inizia a programmare
         </button>
 
         <div style={{ marginTop: 16, fontSize: 12, color: "rgba(255,255,255,0.25)" }}>
-          Gratuito durante il periodo Beta · Nessuna installazione richiesta
+          Completamente gratuito · Nessuna installazione richiesta
         </div>
       </div>
 
@@ -164,7 +175,7 @@ export default function WorkingCodeWelcome({ onEnter }) {
       {/* Footer CTA */}
       <div style={{
         textAlign: "center", padding: "40px",
-        background: `linear-gradient(180deg, transparent, ${ACCENT}08)`,
+        background: `linear-gradient(180deg, transparent, rgba(255,45,85,0.06))`,
         borderTop: "1px solid rgba(255,255,255,0.05)",
         animation: "wc-fadeUp .8s ease .3s both",
       }}>
@@ -181,7 +192,7 @@ export default function WorkingCodeWelcome({ onEnter }) {
             color: ACCENT, fontSize: 14, fontWeight: 600,
             cursor: "pointer", transition: "all .2s",
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = `${ACCENT}15`; }}
+          onMouseEnter={e => { e.currentTarget.style.background = `rgba(255,45,85,0.12)`; }}
           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
         >
           Apri l'editor →

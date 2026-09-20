@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 
-const ACCENT = "#00e5ff";
-const ACCENT2 = "#7c3aed";
+const ACCENT = "#ff2d55";
+const ACCENT2 = "#ff0020";
 
 export default function WorkingCodeLoading({ onDone }) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Anima la progress bar e poi chiama onDone
     const start = Date.now();
     const duration = 2800;
     const frame = () => {
@@ -26,28 +25,31 @@ export default function WorkingCodeLoading({ onDone }) {
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: "#080810",
+      background: "#080000",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       gap: 32, fontFamily: "'Segoe UI', sans-serif",
     }}>
       <style>{`
         @keyframes wc-pulse { 0%,100%{opacity:.3;transform:scale(.85)} 50%{opacity:1;transform:scale(1)} }
-        @keyframes wc-glow  { 0%,100%{box-shadow:0 0 12px ${ACCENT}44} 50%{box-shadow:0 0 32px ${ACCENT}aa,0 0 64px ${ACCENT2}55} }
-        @keyframes wc-dot1  { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
-        @keyframes wc-dot2  { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
-        @keyframes wc-dot3  { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+        @keyframes wc-glow  { 0%,100%{box-shadow:0 0 12px ${ACCENT}44} 50%{box-shadow:0 0 40px ${ACCENT}cc,0 0 80px ${ACCENT2}66} }
       `}</style>
 
       {/* Logo */}
       <div style={{
         width: 90, height: 90, borderRadius: 24,
-        background: `linear-gradient(135deg, ${ACCENT}22, ${ACCENT2}22)`,
-        border: `2px solid ${ACCENT}66`,
+        background: `rgba(255,45,85,0.1)`,
+        border: `2px solid ${ACCENT}88`,
         display: "flex", alignItems: "center", justifyContent: "center",
         animation: "wc-glow 2s ease-in-out infinite",
+        overflow: "hidden",
       }}>
-        <span style={{ fontSize: 44, filter: `drop-shadow(0 0 12px ${ACCENT})` }}>💻</span>
+        <img
+          src="/WorkfyStation/WorkingCodeLogo.png"
+          alt="WorkingCode"
+          style={{ width: 56, height: 56, objectFit: "contain" }}
+          onError={e => { e.target.style.display = "none"; e.target.parentElement.innerHTML = '<span style="font-size:44px">💻</span>'; }}
+        />
       </div>
 
       {/* Testo principale */}
@@ -74,6 +76,7 @@ export default function WorkingCodeLoading({ onDone }) {
             width: 10, height: 10, borderRadius: "50%",
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`,
             animation: `wc-pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+            boxShadow: `0 0 8px ${ACCENT}88`,
           }}/>
         ))}
       </div>
@@ -85,9 +88,9 @@ export default function WorkingCodeLoading({ onDone }) {
       }}>
         <div style={{
           height: "100%", borderRadius: 2,
-          background: `linear-gradient(90deg, ${ACCENT}, ${ACCENT2})`,
+          background: `linear-gradient(90deg, ${ACCENT2}, ${ACCENT})`,
           width: `${progress}%`, transition: "width 60ms linear",
-          boxShadow: `0 0 8px ${ACCENT}`,
+          boxShadow: `0 0 10px ${ACCENT}`,
         }}/>
       </div>
     </div>
