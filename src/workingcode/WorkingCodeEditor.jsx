@@ -492,29 +492,218 @@ export default function WorkingCodeEditor() {
         <div style={{ width: 40, height: 2, borderRadius: 2, background: "rgba(255,45,85,0.3)" }}/>
       </div>
 
-      {/* ── OUTPUT CONSOLE ── */}
+      {/* ── TERMINALE INTERATTIVO ── */}
+      <Terminal
+        output={output}
+        running={running}
+        height={panelH}
+        runTime={runTime}
+        onClear={clearOutput}
+        onRun={runCode}
+        stdin={stdin}
+        onStdinChange={setStdin}
+        langId={lang.id}
+        btn={btn}
+      />
+    </div>
+  );
+}
+
+// ── Interactive Terminal Component ──
+function Terminal({ output, running, height, runTime, onClear, onRun, stdin, onStdinChange, langId, btn }) {
+  const [termInput, setTermInput]   = useState("");
+  const [inputLines, setInputLines] = useState([]);
+  const [showHelp, setShowHelp]     = useState(false);
+  const termRef   = useRef(null);
+  const inputRef  = useRef(null);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
+  }, [output, inputLines]);
+
+  // When user adds a line to stdin, update parent stdin
+  const addInputLine = () => {
+    if (!termInput.trim() && termInput !== "") { setTermInput(""); return; }
+    const newLines = [...inputLines, termInput];
+    setInputLines(newLines);
+    onStdinChange(newLines.join("\n"));
+    setTermInput("");
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") { e.preventDefault(); addInputLine(); }
+  };
+
+  const clearAll = () => {
+    setInputLines([]);
+    onStdinChange("");
+    onClear();
+  };
+
+  // Parse output for coloring
+  const hasError   = output && (output.includes("❌") || output.includes("error") || output.includes("Error"));
+  const hasWarning = output && output.includes("⚠️");
+
+  const needsInput = (langId === "c" || langId === "cpp") &&
+    output && output.includes("Terminato") && !output.includes("✅");
+
+  return (
+    <div style={{ height, flexShrink: 0, display: "flex", flexDirection: "column", background: "#020000" }}>
+      {/* Terminal header bar */}
       <div style={{
-        height: panelH, flexShrink: 0, display: "flex", flexDirection: "column",
-        background: "#050000", borderTop: BORDER,
+        display: "flex", alignItems: "center", gap: 6, padding: "5px 10px",
+        background: "#0a0000", borderBottom: BORDER, flexShrink: 0,
       }}>
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8, padding: "5px 12px",
-          background: BG2, borderBottom: BORDER, flexShrink: 0,
-        }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: ACCENT, letterSpacing: 1 }}>OUTPUT</span>
-          {runTime && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>· {runTime}s</span>}
-          <div style={{ flex: 1 }}/>
-          {btn("🗑 Pulisci", clearOutput, "rgba(255,255,255,0.3)", "Cancella output")}
+        {/* Traffic lights */}
+        <div style={{ display: "flex", gap: 5, marginRight: 4 }}>
+          {["#ff5f57","#febc2e","#28c840"].map((c,i) => (
+            <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: c, opacity: .8 }}/>
+          ))}
         </div>
-        <pre style={{
-          flex: 1, overflow: "auto", margin: 0, padding: "10px 14px",
-          fontFamily: "'Consolas','Courier New',monospace", fontSize: 13,
-          color: "#d4d4d4", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-all",
-          background: "transparent",
-        }}>
-          {output || <span style={{ color: "rgba(255,255,255,0.2)", fontStyle: "italic" }}>L'output del programma apparirà qui...</span>}
-        </pre>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.5)", flex: 1, textAlign: "center" }}>
+          TERMINALE — WorkingCode
+        </span>
+        {runTime && <span style={{ fontSize: 10, color: "rgba(255,45,85,0.5)" }}>{runTime}s</span>}
+        <button onClick={() => setShowHelp(h => !h)}
+          style={{ background: "transparent", border: BORDER, color: "rgba(255,255,255,0.3)", borderRadius: 5, padding: "2px 7px", fontSize: 11, cursor: "pointer" }}>?</button>
+        {btn("🗑", clearAll, "rgba(255,255,255,0.25)", "Pulisci terminale")}
+      </div>
+
+      {/* Help panel */}
+      {showHelp && (
+        <div style={{ padding: "8px 14px", background: "#0f0005", borderBottom: BORDER, fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.7 }}>
+          <strong style={{ color: ACCENT }}>Come funziona il terminale:</strong><br/>
+          • I programmi vengono eseguiti su un <strong>server remoto</strong> (come i compilatori online)<br/>
+          • Se il tuo programma usa <code style={{ color: "#4ade80" }}>scanf()</code> / <code style={{ color: "#4ade80" }}>cin</code>, scrivi i valori qui sotto <strong>prima</strong> di premere Esegui<br/>
+          • Ogni riga corrisponde a un "Invio" nel programma<br/>
+          • A differenza di Dev-C++, non è possibile digitare <em>durante</em> l'esecuzione (limitazione dei compilatori web)
+        </div>
+      )}
+
+      {/* Terminal output */}
+      <div ref={termRef} style={{
+        flex: 1, overflow: "auto", padding: "10px 14px",
+        fontFamily: "'Consolas','Courier New',monospace", fontSize: 13,
+        lineHeight: 1.65, background: "transparent",
+      }}>
+        {/* Prompt header */}
+        <div style={{ color: "rgba(255,45,85,0.5)", marginBottom: 6, fontSize: 11 }}>
+          WorkingCode Terminal v1.0 — {new Date().toLocaleTimeString("it-IT")}
+        </div>
+
+        {/* Pre-typed stdin preview */}
+        {inputLines.length > 0 && !output && (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginBottom: 4 }}>📥 Input pronti ({inputLines.length} righe):</div>
+            {inputLines.map((l, i) => (
+              <div key={i} style={{ color: "#34d399" }}>
+                <span style={{ color: "rgba(255,255,255,0.2)" }}>&gt; </span>{l}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Output */}
+        {output ? (
+          <pre style={{
+            margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-all",
+            color: hasError ? "#fca5a5" : "#e2e8f0",
+          }}>
+            {/* Interleave output with input lines for realistic look */}
+            {output}
+          </pre>
+        ) : running ? (
+          <div style={{ color: "#fbbf24", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ animation: "wc-pulse 1s ease infinite" }}>⏳</span>
+            Compilazione ed esecuzione in corso...
+          </div>
+        ) : (
+          <span style={{ color: "rgba(255,255,255,0.15)", fontStyle: "italic" }}>
+            Premi ▶ Esegui (o F5) per avviare il programma...
+          </span>
+        )}
+
+        {/* Running cursor */}
+        {running && (
+          <span style={{ display: "inline-block", width: 8, height: 14, background: ACCENT, marginLeft: 2, animation: "wc-pulse .7s infinite" }}/>
+        )}
+
+        {/* Hint for stdin-needing programs */}
+        {needsInput && (
+          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", fontSize: 12, color: "#34d399" }}>
+            💡 Il programma sembra aspettarsi input. Scrivi i valori sotto e riesegui.
+          </div>
+        )}
+      </div>
+
+      {/* ── Interactive stdin area ── */}
+      <div style={{ borderTop: BORDER, background: "#040000", flexShrink: 0 }}>
+        {/* Stdin lines already queued */}
+        {inputLines.length > 0 && (
+          <div style={{
+            padding: "4px 14px", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center",
+            borderBottom: "1px solid rgba(52,211,153,0.1)",
+          }}>
+            <span style={{ fontSize: 10, color: "rgba(52,211,153,0.5)" }}>📥 INPUT PRONTO:</span>
+            {inputLines.map((l, i) => (
+              <span key={i} style={{
+                fontSize: 11, padding: "2px 8px", borderRadius: 12,
+                background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)",
+                color: "#34d399", fontFamily: "Consolas, monospace",
+                display: "flex", alignItems: "center", gap: 4,
+              }}>
+                {l || "(vuoto)"}
+                <span onClick={() => {
+                  const nl = inputLines.filter((_,j) => j !== i);
+                  setInputLines(nl); onStdinChange(nl.join("\n"));
+                }} style={{ cursor: "pointer", opacity: .5, fontSize: 12 }}>×</span>
+              </span>
+            ))}
+            <span onClick={() => { setInputLines([]); onStdinChange(""); }}
+              style={{ fontSize: 10, color: "rgba(255,45,85,0.5)", cursor: "pointer", textDecoration: "underline" }}>
+              Cancella tutti
+            </span>
+          </div>
+        )}
+
+        {/* Input row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px" }}>
+          <span style={{ color: "#34d399", fontSize: 13, fontFamily: "Consolas, monospace", flexShrink: 0 }}>$</span>
+          <input
+            ref={inputRef}
+            value={termInput}
+            onChange={e => setTermInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={running ? "Esecuzione in corso..." : "Scrivi un valore di input e premi Invio..."}
+            disabled={running}
+            style={{
+              flex: 1, background: "transparent", border: "none", outline: "none",
+              color: "#34d399", fontFamily: "'Consolas','Courier New',monospace", fontSize: 13,
+              caretColor: "#34d399",
+            }}
+          />
+          {termInput && (
+            <button onClick={addInputLine}
+              style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(52,211,153,0.3)", background: "rgba(52,211,153,0.08)", color: "#34d399", fontSize: 11, cursor: "pointer" }}>
+              + Aggiungi
+            </button>
+          )}
+          <button onClick={onRun} disabled={running}
+            style={{
+              padding: "5px 14px", borderRadius: 7, border: "none",
+              background: running ? "#1a0005" : `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`,
+              color: "#fff", fontWeight: 700, fontSize: 12,
+              cursor: running ? "not-allowed" : "pointer",
+              boxShadow: running ? "none" : `0 0 10px ${ACCENT}55`,
+              transition: "all .2s", flexShrink: 0,
+            }}>
+            {running ? "⏳" : "▶ Esegui"}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
+
