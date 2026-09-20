@@ -5,6 +5,8 @@ import WelcomeScreen from "./components/WelcomeScreen";
 import SettingsPanel from "./components/SettingsPanel";
 import PWAPrompt from "./components/PWAPrompt";
 import LockScreen from "./components/LockScreen";
+import WorkingCodeLoading from "./workingcode/WorkingCodeLoading";
+import WorkingCodeApp from "./workingcode/WorkingCodeApp";
 
 import HomeApp from "./tools/HomeApp";
 import PlusScreen from "./tools/PlusScreen";
@@ -176,6 +178,11 @@ const [screen, setScreen] = useState(() => {
   const [showAppSwitcher, setShowAppSwitcher] = useState(false);
   const [isMobile,     setIsMobile]     = useState(window.innerWidth < 768);
 
+  // WorkingCode
+  const [currentApp,    setCurrentApp]    = useState("workfystation"); // "workfystation" | "wc-loading" | "workingcode"
+  const switchToWorkingCode = () => { setShowAppSwitcher(false); setCurrentApp("wc-loading"); };
+  const switchToWorkfyStation = () => setCurrentApp("workfystation");
+
   // Sicurezza
   const [locked,     setLocked]     = useState(false);
   const [timeout,    setTimeoutVal] = useState(() => parseInt(localStorage.getItem("wfy_timeout") || "0"));
@@ -334,6 +341,10 @@ const [screen, setScreen] = useState(() => {
   if (screen === "welcome")  return <WelcomeScreen user={user} onDone={handleWelcomeDone}/>;
   if (locked) return <LockScreen user={user} onUnlock={() => { setLocked(false); lastActivity.current=Date.now(); }} c={c}/>;
 
+  // ── WorkingCode ──
+  if (currentApp === "wc-loading") return <WorkingCodeLoading onDone={() => setCurrentApp("workingcode")} />;
+  if (currentApp === "workingcode") return <WorkingCodeApp user={user} onSwitchBack={switchToWorkfyStation} />;
+
   const email = user?.email || "guest";
   const showMiniPlayer = active!=="music" && !focusMode && currentId && blobMap.current[currentId];
   const bottomOffset   = showMiniPlayer ? (isMobile?120:56) : (isMobile?64:0);
@@ -436,7 +447,7 @@ const [screen, setScreen] = useState(() => {
 
                   {/* Other App */}
                   <div 
-                    onClick={() => { setShowAppSwitcher(false); alert("WorkingCode PLUS sarà disponibile a breve!"); }}
+                    onClick={switchToWorkingCode}
                     style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px", cursor: "pointer", transition: "background .2s" }}
                     onMouseEnter={(e) => e.currentTarget.style.background = c.surface2}
                     onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
