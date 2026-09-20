@@ -48,7 +48,8 @@ export default function WorkingCodeApp({ user, onSwitchBack }) {
 
   return (
     <div style={{
-      display: "flex", height: "100vh", overflow: "hidden",
+      position: "fixed", inset: 0, zIndex: 500,
+      display: "flex", overflow: "hidden",
       background: "#080000", fontFamily: "'Segoe UI', sans-serif",
     }}>
       <style>{`
