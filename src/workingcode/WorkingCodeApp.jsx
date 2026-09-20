@@ -1,5 +1,6 @@
 import { useState } from "react";
 import WorkingCodeWelcome from "./WorkingCodeWelcome";
+import WorkingCodeEditor from "./WorkingCodeEditor";
 
 const ACCENT  = "#ff2d55";
 const ACCENT2 = "#ff0020";
@@ -43,6 +44,7 @@ export default function WorkingCodeApp({ user, onSwitchBack }) {
 
   function renderPanel() {
     if (active === "welcome") return <WorkingCodeWelcome onEnter={() => setActive("editor")} />;
+    if (active === "editor")  return <WorkingCodeEditor />;
     return <ComingSoon label={currentTool.label} icon={currentTool.icon} />;
   }
 
