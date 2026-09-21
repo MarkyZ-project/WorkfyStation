@@ -67,38 +67,51 @@ function CodeEditor({ code, onChange, fontSize }) {
   const syncScroll = () => { if (lnRef.current && taRef.current) lnRef.current.scrollTop = taRef.current.scrollTop; };
 
   const handleKeyDown = (e) => {
-    const ta = e.target, start = ta.selectionStart, end = ta.selectionEnd;
+    const ta = e.target;
+    const start = ta.selectionStart;
+    const end   = ta.selectionEnd;
+
+    // Tab → 4 spaces (only this, nothing else fancy)
     if (e.key === "Tab") {
       e.preventDefault();
-      const n = code.substring(0, start) + "    " + code.substring(end);
-      onChange(n); requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + 4; });
-      return;
-    }
-    const pairs = { "(":")", "[":"]", "{":"}", '"':'"', "'":"'" };
-    if (pairs[e.key] && start === end) {
-      e.preventDefault();
-      const n = code.substring(0, start) + e.key + pairs[e.key] + code.substring(end);
-      onChange(n); requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = start + 1; });
-      return;
-    }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const ls = code.lastIndexOf("\n", start - 1) + 1;
-      const cl = code.substring(ls, start);
-      const ind = cl.match(/^(\s*)/)[1];
-      const ex = cl.trimEnd().endsWith("{") || cl.trimEnd().endsWith(":") ? "    " : "";
-      const n = code.substring(0, start) + "\n" + ind + ex + code.substring(end);
-      onChange(n); requestAnimationFrame(() => { const p = start + 1 + ind.length + ex.length; ta.selectionStart = ta.selectionEnd = p; });
+      const before = code.substring(0, start);
+      const after  = code.substring(end);
+      const newCode = before + "    " + after;
+      onChange(newCode);
+      // Set cursor after the 4 spaces
+      setTimeout(() => {
+        ta.selectionStart = ta.selectionEnd = start + 4;
+      }, 0);
     }
   };
 
   return (
     <div style={{ display: "flex", flex: 1, overflow: "hidden", fontFamily: "'Consolas','Courier New',monospace", fontSize }}>
-      <div ref={lnRef} style={{ width: 48, flexShrink: 0, background: BG2, borderRight: BORDER, color: "rgba(255,45,85,0.3)", padding: "12px 4px", textAlign: "right", lineHeight: "1.6", overflow: "hidden", userSelect: "none", fontSize, boxSizing: "border-box" }}>
-        {lines.map((_, i) => <div key={i} style={{ paddingRight: 6 }}>{i + 1}</div>)}
+      {/* Line numbers - pointer-events: none so clicks go through to textarea */}
+      <div ref={lnRef} style={{
+        width: 44, flexShrink: 0, background: BG2, borderRight: BORDER,
+        color: "rgba(255,45,85,0.3)", padding: "12px 0", textAlign: "right",
+        lineHeight: "1.6", overflow: "hidden", userSelect: "none", fontSize,
+        boxSizing: "border-box", pointerEvents: "none", position: "relative", zIndex: 1,
+      }}>
+        {lines.map((_, i) => <div key={i} style={{ paddingRight: 8 }}>{i + 1}</div>)}
       </div>
-      <textarea ref={taRef} value={code} onChange={e => onChange(e.target.value)} onScroll={syncScroll} onKeyDown={handleKeyDown} spellCheck={false}
-        style={{ flex: 1, border: "none", outline: "none", resize: "none", background: BG, color: "#f8f8f8", padding: "12px 16px", lineHeight: "1.6", fontSize, fontFamily: "inherit", caretColor: ACCENT, tabSize: 4 }}
+      <textarea
+        ref={taRef}
+        value={code}
+        onChange={e => onChange(e.target.value)}
+        onScroll={syncScroll}
+        onKeyDown={handleKeyDown}
+        spellCheck={false}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        style={{
+          flex: 1, border: "none", outline: "none", resize: "none",
+          background: BG, color: "#f8f8f8", padding: "12px 16px",
+          lineHeight: "1.6", fontSize, fontFamily: "inherit",
+          caretColor: ACCENT, tabSize: 4, position: "relative", zIndex: 2,
+        }}
       />
     </div>
   );
@@ -340,7 +353,21 @@ function InteractiveTerminal({ height, onRun, onTest, running, btn }) {
 
 // ── Main Editor ──
 export default function WorkingCodeEditor() {
-  const [tabs,     setTabs]     = useState(() => { try { const t = JSON.parse(localStorage.getItem(TABS_KEY)); return t?.length ? t : [newTab(LANGUAGES[0])]; } catch { return [newTab(LANGUAGES[0])]; } });
+  const validLangIds = LANGUAGES.map(l => l.id);
+  const [tabs,     setTabs]     = useState(() => {
+    try {
+      const t = JSON.parse(localStorage.getItem(TABS_KEY));
+      if (t?.length) {
+        // Filter out tabs with invalid langIds from old versions
+        const valid = t.filter(tab => validLangIds.includes(tab.langId));
+        if (valid.length) return valid;
+      }
+    } catch {}
+    // Fresh start
+    localStorage.removeItem(TABS_KEY);
+    localStorage.removeItem(ACTIVE_KEY);
+    return [newTab(LANGUAGES[0])];
+  });
   const [activeId, setActiveId] = useState(() => { try { return localStorage.getItem(ACTIVE_KEY) || null; } catch { return null; } });
   const [running,  setRunning]  = useState(false);
   const [fontSize, setFontSize] = useState(14);
