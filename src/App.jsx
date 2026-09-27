@@ -535,20 +535,16 @@ const [screen, setScreen] = useState(() => {
               <span style={{ fontSize:11, color:c.textHint }}>Modalità Focus</span>
               <button onClick={()=>setFocusMode(false)} style={{ padding:"5px 12px", borderRadius:8, border:`1px solid ${c.accent}`, background:c.accentBg, cursor:"pointer", color:c.accent, fontSize:12, fontWeight:500 }}>✕ Esci</button>
             </div>
-            <div style={{ flex:1, padding:20, overflow:"auto" }}>
-              <div style={{ background:c.surface, border:`1px solid ${c.border}`, borderRadius:16, padding:24, height:"calc(100% - 48px)" }}>
-                {panels[active]}
-              </div>
+            <div style={{ flex:1, overflow:"auto", background:c.surface }}>
+              {panels[active]}
             </div>
           </div>
         )}
 
         {/* Pannello normale */}
         {!focusMode && (
-          <div style={{ flex:1, padding:isMobile?10:20, overflow:"auto", paddingBottom:bottomOffset }}>
-            <div style={{ background:c.surface, border:`1px solid ${c.border}`, borderRadius:16, padding:isMobile?14:24, height:`calc(100% - ${isMobile?20:40}px)` }}>
-              {panels[active]}
-            </div>
+          <div style={{ flex:1, overflow:"auto", background:c.surface, paddingBottom:bottomOffset }}>
+            {panels[active]}
           </div>
         )}
       </div>
