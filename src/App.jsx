@@ -173,7 +173,6 @@ const [screen, setScreen] = useState(() => {
   const [active,       setActive]       = useState("home");
   const [sideOpen,     setSideOpen]     = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [focusMode,    setFocusMode]    = useState(false);
   const [showDrawer,   setShowDrawer]   = useState(false);
   const [showAppSwitcher, setShowAppSwitcher] = useState(false);
   const [isMobile,     setIsMobile]     = useState(window.innerWidth < 768);
@@ -346,7 +345,7 @@ const [screen, setScreen] = useState(() => {
   if (currentApp === "workingcode") return <WorkingCodeApp user={user} onSwitchBack={switchToWorkfyStation} />;
 
   const email = user?.email || "guest";
-  const showMiniPlayer = active!=="music" && !focusMode && currentId && blobMap.current[currentId];
+  const showMiniPlayer = active!=="music" && currentId && blobMap.current[currentId];
   const bottomOffset   = showMiniPlayer ? (isMobile?120:56) : (isMobile?64:0);
 
   const panels = {
@@ -403,7 +402,7 @@ const [screen, setScreen] = useState(() => {
       <PWAPrompt c={c}/>
 
       {/* ── SIDEBAR DESKTOP ── */}
-      {!isMobile && !focusMode && (
+      {!isMobile && (
         <div style={{ width:sideOpen?220:64, background:c.surface, borderRight:`1px solid ${c.border}`, display:"flex", flexDirection:"column", transition:"width .3s", overflow:"hidden", flexShrink:0 }}>
 
           {/* Header con Switcher App */}
@@ -507,7 +506,6 @@ const [screen, setScreen] = useState(() => {
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
         {/* Header */}
-        {!focusMode && (
           <div style={{ padding:isMobile?"10px 16px":"14px 24px", borderBottom:`1px solid ${c.border}`, background:c.headerBg, display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
             {isMobile && (
               <div style={{ width:30, height:30, borderRadius:8, background:c.accentBg, border:`1px solid ${c.accent}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -517,40 +515,18 @@ const [screen, setScreen] = useState(() => {
             <span style={{ fontSize:isMobile?18:22 }}>{currentTool.icon}</span>
             <span style={{ fontSize:isMobile?15:17, fontWeight:500, color:c.text }}>{currentTool.label}</span>
             <div style={{ flex:1 }}/>
-            <button onClick={()=>setFocusMode(true)} style={{ padding:"6px 12px", borderRadius:8, border:`1px solid ${c.border}`, background:"transparent", cursor:"pointer", color:c.textMuted, fontSize:12, display:"flex", alignItems:"center", gap:5 }}>
-              <span>⛶</span>{!isMobile&&<span>Focus</span>}
-            </button>
             {isMobile && <button onClick={()=>setSettingsOpen(true)} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${c.border}`, background:"transparent", cursor:"pointer", color:c.textMuted, fontSize:16 }}>⚙</button>}
             {!isMobile && <div style={{ fontSize:12, color:c.textHint }}>v1.0</div>}
           </div>
-        )}
 
-        {/* Modalità focus */}
-        {focusMode && (
-          <div style={{ position:"fixed", inset:0, zIndex:400, background:c.bg, display:"flex", flexDirection:"column", animation:"fadeIn .3s ease" }}>
-            <div style={{ display:"flex", alignItems:"center", padding:"8px 16px", gap:10, borderBottom:`1px solid ${c.border}`, background:c.headerBg }}>
-              <span style={{ fontSize:16 }}>{currentTool.icon}</span>
-              <span style={{ fontSize:14, fontWeight:500, color:c.text }}>{currentTool.label}</span>
-              <div style={{ flex:1 }}/>
-              <span style={{ fontSize:11, color:c.textHint }}>Modalità Focus</span>
-              <button onClick={()=>setFocusMode(false)} style={{ padding:"5px 12px", borderRadius:8, border:`1px solid ${c.accent}`, background:c.accentBg, cursor:"pointer", color:c.accent, fontSize:12, fontWeight:500 }}>✕ Esci</button>
-            </div>
-            <div style={{ flex:1, overflow:"auto", background:c.surface }}>
-              {panels[active]}
-            </div>
-          </div>
-        )}
-
-        {/* Pannello normale */}
-        {!focusMode && (
+        {/* Pannello principale */}
           <div style={{ flex:1, overflow:"auto", background:c.surface, paddingBottom:bottomOffset }}>
             {panels[active]}
           </div>
-        )}
       </div>
 
       {/* ── NAVBAR MOBILE ── */}
-      {isMobile && !focusMode && (
+      {isMobile && (
         <div style={{ position:"fixed", bottom:showMiniPlayer?56:0, left:0, right:0, zIndex:200, background:c.bg==="#0a0a0a"?"rgba(10,10,10,0.95)":"rgba(255,255,255,0.95)", borderTop:`1px solid ${c.border}`, backdropFilter:"blur(12px)", display:"flex", alignItems:"center", height:64, paddingBottom:"env(safe-area-inset-bottom)" }}>
           {MOBILE_TABS.map(t => {
             const isActive = t.id!=="more" && active===t.id;
