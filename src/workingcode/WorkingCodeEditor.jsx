@@ -27,6 +27,54 @@ function codeNeedsInput(code, langId) {
   return false;
 }
 
+// Preprocess code so that prompts always appear on their own line
+// (needed when printf before scanf doesn't have \n)
+function makeInteractive(code, langId) {
+  if (langId !== "c" && langId !== "cpp") return code;
+
+  const lines = code.split('\n');
+  const result = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    const indent = lines[i].match(/^(\s*)/)[1];
+
+    // Detect scanf (C) or cin >> (C++)
+    const isScanf = langId === "c"
+      ? /^scanf\s*\(/.test(trimmed)
+      : /^(scanf\s*\(|cin\s*>>|getline\s*\(\s*cin)/.test(trimmed);
+
+    if (isScanf) {
+      // Look backwards for preceding printf/cout to check if it has \n
+      let prevHasNewline = false;
+      for (let j = i - 1; j >= Math.max(0, i - 5); j--) {
+        const pLine = lines[j].trim();
+        if (pLine === '' || pLine.startsWith('//') || pLine.startsWith('}') || pLine.startsWith('{')) continue;
+        if (pLine.includes('printf') || pLine.includes('cout') || pLine.includes('puts')) {
+          if (pLine.includes('\\n"') || pLine.includes('\\n\\') || pLine.includes('endl') || pLine.includes('puts')) {
+            prevHasNewline = true;
+          }
+          break;
+        }
+        break; // stop at first non-empty, non-comment line
+      }
+
+      if (!prevHasNewline) {
+        // Previous printf doesn't end with \n → inject one so the prompt is on its own line
+        if (langId === "c") result.push(indent + 'printf("\\n");');
+        else result.push(indent + 'cout << "\\n";');
+      }
+      // Always flush stdout to ensure prompt appears before scanf
+      if (langId === "c") result.push(indent + 'fflush(stdout);');
+      else result.push(indent + 'cout.flush();');
+    }
+
+    result.push(lines[i]);
+  }
+
+  return result.join('\n');
+}
+
 async function wandboxRun(compiler, code, stdin) {
   const res = await fetch("https://wandbox.org/api/compile.json", {
     method: "POST",
@@ -133,7 +181,9 @@ function DevTerminal({ height, onRunStateChange, onTest, btn }) {
 
   // ── STEP 0: Initial run (empty stdin) to discover first prompt ──
   const startExecution = useCallback(async (compiler, code, langId) => {
-    setJob({ compiler, code, langId });
+    // Preprocess code to ensure prompts are on their own lines
+    const processedCode = codeNeedsInput(code, langId) ? makeInteractive(code, langId) : code;
+    setJob({ compiler, code: processedCode, langId });
     setInputs([]);
     setStep(0);
     setLines([{ type: "system", text: "─── Terminale WorkingCode ───" }]);
@@ -144,7 +194,7 @@ function DevTerminal({ height, onRunStateChange, onTest, btn }) {
       onRunStateChange(true);
       try {
         const t0 = Date.now();
-        const d = await wandboxRun(compiler, code, "");
+        const d = await wandboxRun(compiler, processedCode, "");
         const el = ((Date.now() - t0) / 1000).toFixed(2);
         if (d.compiler_error && !d.program_output) {
           add("error", "❌ Errore compilazione:");
@@ -169,7 +219,7 @@ function DevTerminal({ height, onRunStateChange, onTest, btn }) {
     add("system", "⚙️ Compilazione...");
 
     try {
-      const d = await wandboxRun(compiler, code, "");
+      const d = await wandboxRun(compiler, processedCode, "");
       if (d.compiler_error && !d.program_output) {
         add("error", "❌ Errore compilazione:");
         d.compiler_error.split("\n").forEach(l => add("error", l));
