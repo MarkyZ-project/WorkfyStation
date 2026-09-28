@@ -80,33 +80,40 @@ export default function LandingPage({ onEnter }) {
       <div style={{ position: "fixed", inset: 0, background: glow, pointerEvents: "none", zIndex: 0 }} />
 
       {/* ═══════ HERO ═══════ */}
-      <div ref={heroRef} style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", padding: "60px 20px", textAlign: "center" }}>
+      <div ref={heroRef} style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", padding: "60px 20px", textAlign: "center", overflow: "hidden" }}>
 
-        {/* Bg decorations */}
-        <div style={{ position: "absolute", top: "10%", left: "15%", width: 300, height: 300, borderRadius: "50%", background: `radial-gradient(circle, ${NEON}11, transparent 70%)`, animation: "pulse-slow 4s infinite", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", bottom: "15%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: `radial-gradient(circle, ${NEON2}0a, transparent 70%)`, animation: "pulse-slow 5s infinite 1s", pointerEvents: "none" }} />
+        {/* Background Video */}
+        <video
+          autoPlay muted loop playsInline
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }}
+        >
+          <source src={`${import.meta.env.BASE_URL}WORKFY _TITLE_VIDEO.mp4`} type="video/mp4" />
+        </video>
+
+        {/* Dark overlay for text readability */}
+        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1 }} />
 
         {/* Logo */}
-        <div style={{ animation: "float 4s ease-in-out infinite, glow-ring 3s infinite, slide-up 1s ease", width: 120, height: 120, borderRadius: 28, background: "linear-gradient(135deg, rgba(255,107,157,0.15), rgba(255,20,147,0.08))", border: `2px solid ${NEON}66`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 32 }}>
+        <div style={{ animation: "float 4s ease-in-out infinite, glow-ring 3s infinite, slide-up 1s ease", width: 120, height: 120, borderRadius: 28, background: "linear-gradient(135deg, rgba(255,107,157,0.15), rgba(255,20,147,0.08))", border: `2px solid ${NEON}66`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 32, position: "relative", zIndex: 2 }}>
           <img src={`${import.meta.env.BASE_URL}WorkfyLogo.png`} alt="WorkfyStation" style={{ width: 80, height: 80, objectFit: "contain" }}
             onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span style="font-size:48px">🚀</span>'; }} />
         </div>
 
         {/* Title */}
-        <h1 style={{ fontSize: "clamp(42px, 7vw, 80px)", fontWeight: 800, margin: "0 0 8px", letterSpacing: -2, background: `linear-gradient(135deg, #fff 0%, ${NEON} 50%, ${NEON2} 100%)`, backgroundSize: "200% 200%", animation: "gradient-move 4s ease infinite, slide-up 1s ease .2s both", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", lineHeight: 1.1 }}>
+        <h1 style={{ fontSize: "clamp(42px, 7vw, 80px)", fontWeight: 800, margin: "0 0 8px", letterSpacing: -2, background: `linear-gradient(135deg, #fff 0%, ${NEON} 50%, ${NEON2} 100%)`, backgroundSize: "200% 200%", animation: "gradient-move 4s ease infinite, slide-up 1s ease .2s both", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", lineHeight: 1.1, position: "relative", zIndex: 2 }}>
           WorkfyStation
         </h1>
 
         {/* Subtitle */}
-        <p style={{ fontSize: "clamp(16px, 2.5vw, 22px)", color: "rgba(255,255,255,0.5)", maxWidth: 600, margin: "0 auto 12px", animation: "slide-up 1s ease .4s both", lineHeight: 1.5 }}>
+        <p style={{ fontSize: "clamp(16px, 2.5vw, 22px)", color: "rgba(255,255,255,0.7)", maxWidth: 600, margin: "0 auto 12px", animation: "slide-up 1s ease .4s both", lineHeight: 1.5, position: "relative", zIndex: 2 }}>
           La tua suite di produttività completa.
         </p>
-        <p style={{ fontSize: "clamp(14px, 2vw, 17px)", color: "rgba(255,107,157,0.6)", maxWidth: 500, margin: "0 auto 40px", animation: "slide-up 1s ease .5s both" }}>
+        <p style={{ fontSize: "clamp(14px, 2vw, 17px)", color: "rgba(255,107,157,0.8)", maxWidth: 500, margin: "0 auto 40px", animation: "slide-up 1s ease .5s both", position: "relative", zIndex: 2 }}>
           Note · Tasks · Fogli · Disegno · Slide · Musica · PDF · Coding — tutto in un'unica app.
         </p>
 
         {/* Hero badges */}
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center", animation: "slide-up 1s ease .6s both" }}>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center", animation: "slide-up 1s ease .6s both", position: "relative", zIndex: 2 }}>
           {[
             { emoji: "🔒", text: "100% Offline" },
             { emoji: "⚡", text: "Zero tracciamento" },
@@ -119,7 +126,7 @@ export default function LandingPage({ onEnter }) {
         </div>
 
         {/* Scroll hint */}
-        <div style={{ position: "absolute", bottom: 30, animation: "float 2s ease-in-out infinite", opacity: 0.3, fontSize: 24 }}>↓</div>
+        <div style={{ position: "absolute", bottom: 30, animation: "float 2s ease-in-out infinite", opacity: 0.4, fontSize: 24, zIndex: 2 }}>↓</div>
       </div>
 
       {/* ═══════ WHAT IS ═══════ */}
