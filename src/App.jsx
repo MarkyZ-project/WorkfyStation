@@ -7,6 +7,7 @@ import PWAPrompt from "./components/PWAPrompt";
 import LockScreen from "./components/LockScreen";
 import WorkingCodeLoading from "./workingcode/WorkingCodeLoading";
 import WorkingCodeApp from "./workingcode/WorkingCodeApp";
+import LandingPage from "./components/LandingPage";
 
 import HomeApp from "./tools/HomeApp";
 import PlusScreen from "./tools/PlusScreen";
@@ -162,6 +163,8 @@ function MiniPlayer({ audioState, audioRef, blobMap }) {
 export default function App() {
   // Screen e utente
 const [screen, setScreen] = useState(() => {
+  const landed = localStorage.getItem("wfy_landed");
+  if (!landed) return "landing";
   const user = localStorage.getItem("wfy_user");
   const accounts = localStorage.getItem("wfy_accounts");
   if (user && accounts) return "app";
@@ -336,6 +339,7 @@ const [screen, setScreen] = useState(() => {
   };
 
   // ── Schermate speciali ──
+  if (screen === "landing") return <LandingPage onEnter={() => { localStorage.setItem("wfy_landed", "1"); setScreen("register"); }} />;
   if (screen === "register") return <RegisterScreen onDone={handleRegister}/>;
   if (screen === "welcome")  return <WelcomeScreen user={user} onDone={handleWelcomeDone}/>;
   if (locked) return <LockScreen user={user} onUnlock={() => { setLocked(false); lastActivity.current=Date.now(); }} c={c}/>;
