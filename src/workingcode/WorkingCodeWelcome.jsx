@@ -75,7 +75,7 @@ export default function WorkingCodeWelcome({ onEnter }) {
         {/* Logo */}
         <div style={{ marginBottom: 24 }}>
           <img
-            src="/WorkfyStation/WorkingCodeLogo.png"
+            src={`${import.meta.env.BASE_URL}WorkingCodeLogo.png`}
             alt="WorkingCode"
             style={{ width: 72, height: 72, objectFit: "contain", filter: `drop-shadow(0 0 16px ${ACCENT}88)` }}
             onError={e => { e.target.style.display = "none"; }}

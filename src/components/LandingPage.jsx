@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 
-const NEON  = "#ff6b9d";
+const NEON = "#ff6b9d";
 const NEON2 = "#ff1493";
-const GOLD  = "#FFD700";
+const GOLD = "#FFD700";
 
 const FEATURES = [
   { icon: "✏️", title: "Note", desc: "Editor di testo completo per appunti, idee e documenti." },
@@ -81,15 +81,15 @@ export default function LandingPage({ onEnter }) {
 
       {/* ═══════ HERO ═══════ */}
       <div ref={heroRef} style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", padding: "60px 20px", textAlign: "center" }}>
-        
+
         {/* Bg decorations */}
         <div style={{ position: "absolute", top: "10%", left: "15%", width: 300, height: 300, borderRadius: "50%", background: `radial-gradient(circle, ${NEON}11, transparent 70%)`, animation: "pulse-slow 4s infinite", pointerEvents: "none" }} />
         <div style={{ position: "absolute", bottom: "15%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: `radial-gradient(circle, ${NEON2}0a, transparent 70%)`, animation: "pulse-slow 5s infinite 1s", pointerEvents: "none" }} />
 
         {/* Logo */}
         <div style={{ animation: "float 4s ease-in-out infinite, glow-ring 3s infinite, slide-up 1s ease", width: 120, height: 120, borderRadius: 28, background: "linear-gradient(135deg, rgba(255,107,157,0.15), rgba(255,20,147,0.08))", border: `2px solid ${NEON}66`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 32 }}>
-          <img src="/WorkfyStation/WorkfyLogo.png" alt="WorkfyStation" style={{ width: 80, height: 80, objectFit: "contain" }}
-               onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span style="font-size:48px">🚀</span>'; }} />
+          <img src={`${import.meta.env.BASE_URL}WorkfyLogo.png`} alt="WorkfyStation" style={{ width: 80, height: 80, objectFit: "contain" }}
+            onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span style="font-size:48px">🚀</span>'; }} />
         </div>
 
         {/* Title */}

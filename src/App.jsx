@@ -412,7 +412,7 @@ const [screen, setScreen] = useState(() => {
           {/* Header con Switcher App */}
           <div style={{ padding:"16px 12px", borderBottom:`1px solid ${c.border}`, display:"flex", alignItems:"center", gap:8, position: "relative" }}>
             <div style={{ width:36, height:36, borderRadius:10, background:c.accentBg, border:`1px solid ${c.accent}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:glowS(neon,6), animation:glowOn?"glow-pulse 3s infinite":"none" }}>
-              <img src="/WorkfyStation/WorkfyLogo.png" alt="logo" style={{ width:24, height:24, objectFit:"contain", borderRadius:4 }}/>
+              <img src={`${import.meta.env.BASE_URL}WorkfyLogo.png`} alt="logo" style={{ width:24, height:24, objectFit:"contain", borderRadius:4 }}/>
             </div>
             
             {sideOpen && (
@@ -439,7 +439,7 @@ const [screen, setScreen] = useState(() => {
                   {/* Current App */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px", background: c.accentBg, cursor: "default" }}>
                     <div style={{ width: 28, height: 28, borderRadius: 8, background: c.accentBg, border: `1px solid ${c.accent}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <img src="/WorkfyStation/WorkfyLogo.png" alt="logo" style={{ width: 18, height: 18, objectFit: "contain" }}/>
+                      <img src={`${import.meta.env.BASE_URL}WorkfyLogo.png`} alt="logo" style={{ width: 18, height: 18, objectFit: "contain" }}/>
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: c.accent }}>WorkfyStation</div>
@@ -456,7 +456,7 @@ const [screen, setScreen] = useState(() => {
                     onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                   >
                     <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg, ${GOLD}44, ${GOLD2}22)`, border: `1px solid ${GOLD}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                      <img src="/WorkfyStation/WorkingCodeLogo.png" alt="WorkingCode" style={{ width: 18, height: 18, objectFit: "contain" }} 
+                      <img src={`${import.meta.env.BASE_URL}WorkingCodeLogo.png`} alt="WorkingCode" style={{ width: 18, height: 18, objectFit: "contain" }} 
                            onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span style="font-size:14px">💻</span>'; }} />
                     </div>
                     <div style={{ flex: 1 }}>
@@ -513,7 +513,7 @@ const [screen, setScreen] = useState(() => {
           <div style={{ padding:isMobile?"10px 16px":"14px 24px", borderBottom:`1px solid ${c.border}`, background:c.headerBg, display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
             {isMobile && (
               <div style={{ width:30, height:30, borderRadius:8, background:c.accentBg, border:`1px solid ${c.accent}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <img src="/WorkfyStation/WorkfyLogo.png" alt="logo" style={{ width:20, height:20, objectFit:"contain" }}/>
+                <img src={`${import.meta.env.BASE_URL}WorkfyLogo.png`} alt="logo" style={{ width:20, height:20, objectFit:"contain" }}/>
               </div>
             )}
             <span style={{ fontSize:isMobile?18:22 }}>{currentTool.icon}</span>

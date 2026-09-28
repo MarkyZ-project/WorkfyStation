@@ -301,7 +301,7 @@ export default function SettingsPanel({
               Esci dall'account
             </button>
             <div style={{ textAlign:"center", fontSize:11, color:c.textHint }}>
-              <a href="/WorkfyStation/TERMS.txt" target="_blank" rel="noopener noreferrer" style={{ color:c.textHint, textDecoration:"underline" }}>Termini, Condizioni & Privacy Policy</a>
+              <a href={`${import.meta.env.BASE_URL}TERMS.txt`} target="_blank" rel="noopener noreferrer" style={{ color:c.textHint, textDecoration:"underline" }}>Termini, Condizioni & Privacy Policy</a>
               <div style={{ marginTop:4 }}>App Offline-First. I dati rimangono solo sul tuo dispositivo.</div>
             </div>
           </>}

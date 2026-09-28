@@ -88,7 +88,7 @@ export default function WorkingCodeApp({ user, onSwitchBack }) {
             overflow: "hidden",
           }}>
             <img
-              src="/WorkfyStation/WorkingCodeLogo.png"
+              src={`${import.meta.env.BASE_URL}WorkingCodeLogo.png`}
               alt="WorkingCode"
               style={{ width: 24, height: 24, objectFit: "contain" }}
               onError={e => { e.target.style.display = "none"; e.target.parentElement.innerHTML = '<span style="font-size:18px">💻</span>'; }}
