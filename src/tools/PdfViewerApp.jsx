@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 
-const NEON = "#ff6b9d";
-
 export default function PdfViewerApp({ c }) {
   const [file, setFile] = useState(null);
   const [fileType, setFileType] = useState(null);

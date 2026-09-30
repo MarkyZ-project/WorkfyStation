@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 
-const NEON = "#ff6b9d";
-
 const fmt = (n) => {
   if (isNaN(n) || !isFinite(n)) return "Errore";
   const num = parseFloat(n);
@@ -99,7 +97,7 @@ export default function CalcApp({ c }) {
   const cols = mode === "standard" ? 4 : 5;
 
   const bc = (t) =>
-    t === "eq"     ? { bg: NEON, color: "#fff", border: NEON } :
+    t === "eq"     ? { bg: c.accent, color: c.accentText || "#fff", border: c.accent } :
     t === "op"     ? { bg: c.accentBg, color: c.accent, border: c.accent } :
     t === "fn"     ? { bg: c.accentBg2, color: c.textMuted, border: c.border } :
     t === "action" ? { bg: c.accentBg2, color: c.textMuted, border: c.border } :

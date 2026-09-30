@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 
-const NEON = "#ff6b9d";
-const NEON2 = "#ff1493";
 const GOLD = "#FFD700";
 
 const FEATURES = [
@@ -42,7 +40,7 @@ function Section({ children, delay = 0 }) {
   return (
     <div ref={ref} style={{
       opacity: visible ? 1 : 0,
-      transform: visible ? "translateY(0)" : "translateY(40px)",
+      transform: visible ? "translateY(0)" : "translateY(36px)",
       transition: `all 0.8s cubic-bezier(.16,1,.3,1) ${delay}ms`,
     }}>
       {children}
@@ -60,20 +58,18 @@ export default function LandingPage({ onEnter }) {
     return () => window.removeEventListener("mousemove", h);
   }, []);
 
-  const glow = `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255,107,157,0.06), transparent 60%)`;
+  const glow = `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255,255,255,0.04), transparent 60%)`;
 
   return (
-    <div style={{ background: "#050505", color: "#fff", fontFamily: "'Segoe UI','Inter',sans-serif", minHeight: "100vh", overflowX: "hidden", position: "relative" }}>
+    <div style={{ background: "#000000", color: "#ffffff", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", minHeight: "100vh", overflowX: "hidden", position: "relative" }}>
       <style>{`
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
-        @keyframes glow-ring { 0%{box-shadow:0 0 20px ${NEON}44} 50%{box-shadow:0 0 40px ${NEON}88,0 0 80px ${NEON2}44} 100%{box-shadow:0 0 20px ${NEON}44} }
-        @keyframes gradient-move { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
-        @keyframes pulse-slow { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes glow-ring { 0%{box-shadow:0 0 20px rgba(255,255,255,0.15)} 50%{box-shadow:0 0 35px rgba(255,255,255,0.3)} 100%{box-shadow:0 0 20px rgba(255,255,255,0.15)} }
         @keyframes slide-up { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
-        .landing-btn:hover { transform: scale(1.05) !important; box-shadow: 0 0 30px ${NEON}88, 0 0 60px ${NEON2}44 !important; }
-        .feature-card:hover { transform: translateY(-6px) !important; border-color: ${NEON}88 !important; background: rgba(255,107,157,0.08) !important; }
-        .plus-card:hover { transform: translateY(-6px) !important; border-color: ${GOLD}88 !important; }
-        ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-track{background:#0a0a0a} ::-webkit-scrollbar-thumb{background:${NEON}44;border-radius:3px}
+        .landing-btn:hover { transform: scale(1.04) !important; box-shadow: 0 0 35px rgba(255,255,255,0.5) !important; }
+        .feature-card:hover { transform: translateY(-5px) !important; border-color: rgba(255,255,255,0.35) !important; background: rgba(255,255,255,0.05) !important; }
+        .plus-card:hover { transform: translateY(-5px) !important; border-color: ${GOLD}88 !important; }
+        ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-track{background:#000000} ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:3px}
       `}</style>
 
       {/* Cursor glow */}
@@ -91,81 +87,97 @@ export default function LandingPage({ onEnter }) {
         </video>
 
         {/* Dark overlay for text readability */}
-        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1 }} />
+        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(2px)", zIndex: 1 }} />
 
         {/* Logo */}
-        <div style={{ animation: "float 4s ease-in-out infinite, glow-ring 3s infinite, slide-up 1s ease", width: 120, height: 120, borderRadius: 28, background: "linear-gradient(135deg, rgba(255,107,157,0.15), rgba(255,20,147,0.08))", border: `2px solid ${NEON}66`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 32, position: "relative", zIndex: 2 }}>
-          <img src={`${import.meta.env.BASE_URL}WorkfyLogo.png`} alt="WorkfyStation" style={{ width: 80, height: 80, objectFit: "contain" }}
-            onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span style="font-size:48px">🚀</span>'; }} />
+        <div style={{ animation: "float 4s ease-in-out infinite, glow-ring 3s infinite, slide-up 1s ease", width: 110, height: 110, borderRadius: 26, background: "rgba(255,255,255,0.06)", border: "1.5px solid rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 28, position: "relative", zIndex: 2 }}>
+          <img src={`${import.meta.env.BASE_URL}WorkfyLogo.png`} alt="WorkfyStation" style={{ width: 75, height: 75, objectFit: "contain" }}
+            onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span style="font-size:44px">🚀</span>'; }} />
         </div>
 
         {/* Title */}
-        <h1 style={{ fontSize: "clamp(42px, 7vw, 80px)", fontWeight: 800, margin: "0 0 8px", letterSpacing: -2, background: `linear-gradient(135deg, #fff 0%, ${NEON} 50%, ${NEON2} 100%)`, backgroundSize: "200% 200%", animation: "gradient-move 4s ease infinite, slide-up 1s ease .2s both", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", lineHeight: 1.1, position: "relative", zIndex: 2 }}>
+        <h1 style={{ fontSize: "clamp(42px, 7vw, 84px)", fontWeight: 800, margin: "0 0 12px", letterSpacing: -1.5, color: "#ffffff", lineHeight: 1.08, position: "relative", zIndex: 2 }}>
           WorkfyStation
         </h1>
 
         {/* Subtitle */}
-        <p style={{ fontSize: "clamp(16px, 2.5vw, 22px)", color: "rgba(255,255,255,0.7)", maxWidth: 600, margin: "0 auto 12px", animation: "slide-up 1s ease .4s both", lineHeight: 1.5, position: "relative", zIndex: 2 }}>
-          La tua suite di produttività completa.
+        <p style={{ fontSize: "clamp(16px, 2.5vw, 22px)", color: "rgba(255,255,255,0.85)", maxWidth: 620, margin: "0 auto 12px", animation: "slide-up 1s ease .3s both", lineHeight: 1.5, position: "relative", zIndex: 2 }}>
+          La tua suite di produttività completa in bianco e nero.
         </p>
-        <p style={{ fontSize: "clamp(14px, 2vw, 17px)", color: "rgba(255,107,157,0.8)", maxWidth: 500, margin: "0 auto 40px", animation: "slide-up 1s ease .5s both", position: "relative", zIndex: 2 }}>
-          Note · Tasks · Fogli · Disegno · Slide · Musica · PDF · Coding — tutto in un'unica app.
+        <p style={{ fontSize: "clamp(14px, 2vw, 16px)", color: "rgba(255,255,255,0.55)", maxWidth: 540, margin: "0 auto 36px", animation: "slide-up 1s ease .4s both", position: "relative", zIndex: 2 }}>
+          Note · Tasks · Fogli · Disegno · Slide · Calcola · Musica · PDF · Coding — tutto in locale.
         </p>
 
         {/* Hero badges */}
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center", animation: "slide-up 1s ease .6s both", position: "relative", zIndex: 2 }}>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", animation: "slide-up 1s ease .5s both", position: "relative", zIndex: 2, marginBottom: 40 }}>
           {[
             { emoji: "🔒", text: "100% Offline" },
             { emoji: "⚡", text: "Zero tracciamento" },
             { emoji: "🆓", text: "Gratuita" },
           ].map((b, i) => (
-            <div key={i} style={{ padding: "10px 20px", borderRadius: 50, border: `1px solid ${NEON}33`, background: "rgba(255,107,157,0.05)", display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "rgba(255,255,255,0.7)" }}>
+            <div key={i} style={{ padding: "9px 18px", borderRadius: 50, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.06)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.9)", fontWeight: 500 }}>
               <span>{b.emoji}</span> {b.text}
             </div>
           ))}
         </div>
 
+        {/* Primary CTA */}
+        <button
+          className="landing-btn"
+          onClick={onEnter}
+          style={{
+            position: "relative", zIndex: 2,
+            padding: "16px 44px", borderRadius: 14, border: "none",
+            background: "#ffffff", color: "#000000",
+            fontSize: 17, fontWeight: 700, cursor: "pointer",
+            boxShadow: "0 4px 25px rgba(255,255,255,0.3)",
+            transition: "all .25s ease", letterSpacing: 0.3,
+          }}
+        >
+          🚀 Entra in WorkfyStation
+        </button>
+
         {/* Scroll hint */}
-        <div style={{ position: "absolute", bottom: 30, animation: "float 2s ease-in-out infinite", opacity: 0.4, fontSize: 24, zIndex: 2 }}>↓</div>
+        <div style={{ position: "absolute", bottom: 24, animation: "float 2s ease-in-out infinite", opacity: 0.4, fontSize: 22, zIndex: 2 }}>↓</div>
       </div>
 
       {/* ═══════ WHAT IS ═══════ */}
       <div style={{ padding: "100px 20px", maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
         <Section>
-          <div style={{ fontSize: 13, color: NEON, letterSpacing: 3, marginBottom: 16, fontWeight: 600 }}>COS'È WORKFYSTATION</div>
-          <h2 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 700, margin: "0 0 24px", lineHeight: 1.2 }}>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", letterSpacing: 3, marginBottom: 14, fontWeight: 600 }}>COS'È WORKFYSTATION</div>
+          <h2 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 700, margin: "0 0 20px", lineHeight: 1.2 }}>
             Tutto ciò che serve per lavorare.<br />
-            <span style={{ color: NEON }}>In un unico posto.</span>
+            <span style={{ color: "rgba(255,255,255,0.6)" }}>In un unico posto, minimale e veloce.</span>
           </h2>
-          <p style={{ fontSize: 17, color: "rgba(255,255,255,0.5)", lineHeight: 1.8, maxWidth: 700, margin: "0 auto" }}>
+          <p style={{ fontSize: 17, color: "rgba(255,255,255,0.6)", lineHeight: 1.8, maxWidth: 680, margin: "0 auto" }}>
             WorkfyStation è una suite di produttività completa che funziona direttamente nel browser.
             Nessuna installazione, nessun account cloud, nessun tracciamento.
-            I tuoi dati restano sul <strong style={{ color: "rgba(255,255,255,0.8)" }}>tuo dispositivo</strong>, sempre.
+            I tuoi dati restano sul <strong style={{ color: "#ffffff" }}>tuo dispositivo</strong>, sempre.
           </p>
         </Section>
       </div>
 
       {/* ═══════ FEATURES GRID ═══════ */}
-      <div style={{ padding: "60px 20px 100px", maxWidth: 1100, margin: "0 auto" }}>
+      <div style={{ padding: "40px 20px 100px", maxWidth: 1100, margin: "0 auto" }}>
         <Section>
-          <div style={{ fontSize: 13, color: NEON, letterSpacing: 3, marginBottom: 16, fontWeight: 600, textAlign: "center" }}>STRUMENTI</div>
-          <h2 style={{ fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 700, textAlign: "center", marginBottom: 48 }}>
-            11 strumenti professionali. <span style={{ color: NEON }}>Gratis.</span>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", letterSpacing: 3, marginBottom: 14, fontWeight: 600, textAlign: "center" }}>STRUMENTI</div>
+          <h2 style={{ fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 700, textAlign: "center", marginBottom: 44 }}>
+            11 strumenti professionali. <span style={{ color: "rgba(255,255,255,0.5)" }}>Gratis.</span>
           </h2>
         </Section>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 18 }}>
           {FEATURES.map((f, i) => (
-            <Section key={i} delay={i * 60}>
+            <Section key={i} delay={i * 50}>
               <div className="feature-card" style={{
-                padding: "28px 24px", borderRadius: 16, border: `1px solid rgba(255,107,157,0.15)`,
+                padding: "26px 22px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)",
                 background: "rgba(255,255,255,0.02)", cursor: "default", transition: "all .3s",
                 display: "flex", gap: 16, alignItems: "flex-start",
               }}>
-                <div style={{ fontSize: 28, flexShrink: 0, width: 48, height: 48, borderRadius: 12, background: `rgba(255,107,157,0.08)`, display: "flex", alignItems: "center", justifyContent: "center" }}>{f.icon}</div>
+                <div style={{ fontSize: 26, flexShrink: 0, width: 48, height: 48, borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>{f.icon}</div>
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6, color: "#fff" }}>{f.title}</div>
-                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>{f.desc}</div>
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 }}>{f.desc}</div>
                 </div>
               </div>
             </Section>
@@ -175,26 +187,26 @@ export default function LandingPage({ onEnter }) {
 
       {/* ═══════ PRIVACY ═══════ */}
       <div style={{ padding: "80px 20px", textAlign: "center", position: "relative" }}>
-        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, transparent, rgba(255,107,157,0.03), transparent)`, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent, rgba(255,255,255,0.02), transparent)", pointerEvents: "none" }} />
         <Section>
           <div style={{ maxWidth: 800, margin: "0 auto" }}>
-            <div style={{ fontSize: 60, marginBottom: 20 }}>🔐</div>
-            <div style={{ fontSize: 13, color: NEON, letterSpacing: 3, marginBottom: 16, fontWeight: 600 }}>PRIVACY FIRST</div>
-            <h2 style={{ fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 700, marginBottom: 20 }}>
-              I tuoi dati sono <span style={{ color: NEON }}>solo tuoi.</span>
+            <div style={{ fontSize: 54, marginBottom: 16 }}>🔐</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", letterSpacing: 3, marginBottom: 14, fontWeight: 600 }}>PRIVACY FIRST</div>
+            <h2 style={{ fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 700, marginBottom: 18 }}>
+              I tuoi dati sono <span style={{ color: "rgba(255,255,255,0.6)" }}>solo tuoi.</span>
             </h2>
-            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.45)", lineHeight: 1.8, maxWidth: 600, margin: "0 auto 32px" }}>
+            <p style={{ fontSize: 16, color: "rgba(255,255,255,0.55)", lineHeight: 1.8, maxWidth: 600, margin: "0 auto 32px" }}>
               Architettura Zero-Knowledge: non raccogliamo, non tracciamo e non inviamo nessun dato a server esterni.
               Tutto resta nel tuo browser, sotto il tuo controllo.
             </p>
-            <div style={{ display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
               {[
                 { icon: "🚫", text: "Zero tracking" },
                 { icon: "💾", text: "Dati in locale" },
                 { icon: "🛡️", text: "Zero-Knowledge" },
                 { icon: "📵", text: "Funziona offline" },
               ].map((b, i) => (
-                <div key={i} style={{ padding: "12px 20px", borderRadius: 12, border: `1px solid rgba(255,107,157,0.15)`, background: "rgba(255,107,157,0.04)", fontSize: 13, color: "rgba(255,255,255,0.6)", display: "flex", alignItems: "center", gap: 8 }}>
+                <div key={i} style={{ padding: "12px 20px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.04)", fontSize: 13, color: "rgba(255,255,255,0.8)", display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 18 }}>{b.icon}</span> {b.text}
                 </div>
               ))}
@@ -206,28 +218,28 @@ export default function LandingPage({ onEnter }) {
       {/* ═══════ PLUS ═══════ */}
       <div style={{ padding: "80px 20px 100px", maxWidth: 1000, margin: "0 auto" }}>
         <Section>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <div style={{ fontSize: 13, color: GOLD, letterSpacing: 3, marginBottom: 16, fontWeight: 600 }}>PROSSIMAMENTE</div>
+          <div style={{ textAlign: "center", marginBottom: 44 }}>
+            <div style={{ fontSize: 12, color: GOLD, letterSpacing: 3, marginBottom: 14, fontWeight: 600 }}>PROSSIMAMENTE</div>
             <h2 style={{ fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 700, marginBottom: 8 }}>
               Workfy <span style={{ background: `linear-gradient(90deg, ${GOLD}, #FFA500)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>PLUS</span>
             </h2>
-            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.4)", maxWidth: 500, margin: "0 auto" }}>
+            <p style={{ fontSize: 15, color: "rgba(255,255,255,0.5)", maxWidth: 500, margin: "0 auto" }}>
               Sblocca funzionalità premium per portare la produttività al livello successivo.
             </p>
           </div>
         </Section>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 18 }}>
           {PLUS_FEATURES.map((f, i) => (
-            <Section key={i} delay={i * 80}>
+            <Section key={i} delay={i * 70}>
               <div className="plus-card" style={{
-                padding: "28px 24px", borderRadius: 16, border: `1px solid ${GOLD}22`,
-                background: `linear-gradient(135deg, rgba(255,215,0,0.03), rgba(255,165,0,0.02))`,
+                padding: "26px 20px", borderRadius: 16, border: `1px solid ${GOLD}33`,
+                background: "linear-gradient(135deg, rgba(255,215,0,0.03), rgba(255,165,0,0.02))",
                 cursor: "default", transition: "all .3s", textAlign: "center",
               }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>{f.icon}</div>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: GOLD }}>{f.title}</div>
-                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.6 }}>{f.desc}</div>
+                <div style={{ fontSize: 34, marginBottom: 12 }}>{f.icon}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6, color: GOLD }}>{f.title}</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 }}>{f.desc}</div>
               </div>
             </Section>
           ))}
@@ -235,13 +247,13 @@ export default function LandingPage({ onEnter }) {
       </div>
 
       {/* ═══════ CTA FINALE ═══════ */}
-      <div style={{ padding: "80px 20px 120px", textAlign: "center", position: "relative" }}>
-        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at center bottom, rgba(255,107,157,0.08), transparent 60%)`, pointerEvents: "none" }} />
+      <div style={{ padding: "60px 20px 110px", textAlign: "center", position: "relative" }}>
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at center bottom, rgba(255,255,255,0.05), transparent 60%)", pointerEvents: "none" }} />
         <Section>
-          <h2 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 800, marginBottom: 16, lineHeight: 1.2 }}>
+          <h2 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 800, marginBottom: 14, lineHeight: 1.2 }}>
             Pronto a iniziare?
           </h2>
-          <p style={{ fontSize: 16, color: "rgba(255,255,255,0.4)", marginBottom: 40, maxWidth: 450, margin: "0 auto 40px" }}>
+          <p style={{ fontSize: 16, color: "rgba(255,255,255,0.5)", marginBottom: 36, maxWidth: 450, margin: "0 auto 36px" }}>
             Entra in WorkfyStation e scopri un nuovo modo di lavorare. Gratis, per sempre.
           </p>
           <button
@@ -249,24 +261,24 @@ export default function LandingPage({ onEnter }) {
             onClick={onEnter}
             style={{
               padding: "18px 56px", borderRadius: 16, border: "none",
-              background: `linear-gradient(135deg, ${NEON}, ${NEON2})`,
-              color: "#fff", fontSize: 18, fontWeight: 700, cursor: "pointer",
-              boxShadow: `0 0 20px ${NEON}55, 0 0 40px ${NEON2}33`,
-              transition: "all .3s", letterSpacing: 0.5,
+              background: "#ffffff",
+              color: "#000000", fontSize: 18, fontWeight: 700, cursor: "pointer",
+              boxShadow: "0 0 30px rgba(255,255,255,0.35)",
+              transition: "all .3s", letterSpacing: 0.4,
             }}
           >
             🚀 Entra in WorkfyStation
           </button>
-          <div style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.25)" }}>
+          <div style={{ marginTop: 18, fontSize: 12, color: "rgba(255,255,255,0.35)" }}>
             Nessuna registrazione richiesta · 100% gratuito · I tuoi dati restano tuoi
           </div>
         </Section>
       </div>
 
       {/* Footer */}
-      <div style={{ padding: "30px 20px", borderTop: `1px solid rgba(255,107,157,0.1)`, textAlign: "center" }}>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>
-          © {new Date().getFullYear()} WorkfyStation · Made with ❤️
+      <div style={{ padding: "26px 20px", borderTop: "1px solid rgba(255,255,255,0.1)", textAlign: "center" }}>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>
+          © {new Date().getFullYear()} WorkfyStation · Privacy & Productivity Suite
         </div>
       </div>
     </div>

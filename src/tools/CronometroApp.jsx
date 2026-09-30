@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 
-const NEON = "#ff6b9d";
-
 // Generate beep sound via Web Audio API (no external files needed)
 function playBeep() {
   try {
@@ -127,7 +125,7 @@ export default function CronometroApp({ c }) {
     padding: "12px 24px", borderRadius: 10, fontSize: 15, fontWeight: 500, cursor: "pointer",
     border: `1px solid ${color || c.accent}`,
     background: active ? (color || c.accent) : "transparent",
-    color: active ? "#fff" : (color || c.accent),
+    color: active ? (color ? "#fff" : (c.accentText || "#fff")) : (color || c.accent),
     transition: "all .2s",
   });
 
@@ -191,11 +189,11 @@ export default function CronometroApp({ c }) {
             </div>
           )}
           {(timerRunning || timerMs > 0) && (
-            <div style={{ textAlign: "center", padding: "32px 0", background: c.surface, border: `1px solid ${timerDone ? NEON : c.border}`, borderRadius: 16, boxShadow: timerDone ? `0 0 20px ${NEON}` : "none", transition: "all .5s" }}>
-              <div style={{ fontSize: 64, fontWeight: 200, color: timerDone ? NEON : c.text, letterSpacing: 4 }}>
+            <div style={{ textAlign: "center", padding: "32px 0", background: c.surface, border: `1px solid ${timerDone ? c.accent : c.border}`, borderRadius: 16, boxShadow: timerDone ? `0 0 20px ${c.accent}` : "none", transition: "all .5s" }}>
+              <div style={{ fontSize: 64, fontWeight: 200, color: timerDone ? c.accent : c.text, letterSpacing: 4 }}>
                 {pad(tr.h)}:{pad(tr.m)}:{pad(tr.s)}
               </div>
-              {timerDone && <div style={{ color: NEON, fontSize: 18, marginTop: 8, fontWeight: 500 }}>Tempo scaduto!</div>}
+              {timerDone && <div style={{ color: c.accent, fontSize: 18, marginTop: 8, fontWeight: 500 }}>Tempo scaduto!</div>}
             </div>
           )}
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>

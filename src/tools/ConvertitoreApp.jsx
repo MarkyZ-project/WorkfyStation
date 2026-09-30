@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 
-const NEON = "#ff6b9d";
-
 const CATEGORIES = {
   valute: {
     label: "Valute", icon: "💶",

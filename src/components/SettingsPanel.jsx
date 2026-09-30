@@ -1,34 +1,34 @@
 import { useState } from "react";
 import Toggle from "./Toggle";
 
-const NEON = "#ff6b9d";
-const NEON2 = "#ff1493";
-
 const NEON_PRESETS = [
-  { label:"Rosa",    color:"#ff6b9d", color2:"#ff1493" },
-  { label:"Viola",   color:"#a855f7", color2:"#7c3aed" },
-  { label:"Blu",     color:"#3b82f6", color2:"#1d4ed8" },
-  { label:"Ciano",   color:"#06b6d4", color2:"#0891b2" },
-  { label:"Verde",   color:"#10b981", color2:"#059669" },
-  { label:"Arancio", color:"#f97316", color2:"#ea580c" },
-  { label:"Giallo",  color:"#eab308", color2:"#ca8a04" },
-  { label:"Rosso",   color:"#ef4444", color2:"#dc2626" },
+  { label: "B&W",      color: "#ffffff", color2: "#ffffff", isBW: true },
+  { label: "Viola",    color: "#a855f7", color2: "#7c3aed" },
+  { label: "Rosa",     color: "#ff6b9d", color2: "#ff1493" },
+  { label: "Blu",      color: "#3b82f6", color2: "#1d4ed8" },
+  { label: "Ciano",    color: "#06b6d4", color2: "#0891b2" },
+  { label: "Verde",    color: "#10b981", color2: "#059669" },
+  { label: "Arancio",  color: "#f97316", color2: "#ea580c" },
+  { label: "Giallo",   color: "#eab308", color2: "#ca8a04" },
+  { label: "Rosso",    color: "#ef4444", color2: "#dc2626" },
 ];
 
 const BG_PRESETS_DARK = [
-  { label:"Nero",        bg:"#0a0a0a" },
-  { label:"Blu notte",   bg:"#050510" },
-  { label:"Verde notte", bg:"#020f0a" },
-  { label:"Viola notte", bg:"#0a0510" },
-  { label:"Grafite",     bg:"#0f0f0f" },
+  { label: "Nero puro",   bg: "#000000" },
+  { label: "Nero notte",  bg: "#0a0a0a" },
+  { label: "Grafite",     bg: "#141414" },
+  { label: "Viola notte", bg: "#0e0918" },
+  { label: "Blu notte",   bg: "#060814" },
+  { label: "Verde notte", bg: "#030f09" },
 ];
 
 const BG_PRESETS_LIGHT = [
-  { label:"Bianco", bg:"#f5f5f7" },
-  { label:"Crema",  bg:"#faf7f2" },
-  { label:"Azzurro",bg:"#f0f4ff" },
-  { label:"Verde",  bg:"#f0faf4" },
-  { label:"Rosa",   bg:"#fff0f5" },
+  { label: "Bianco puro",   bg: "#ffffff" },
+  { label: "Bianco neve",   bg: "#f5f5f7" },
+  { label: "Grigio chiaro", bg: "#f0f0f2" },
+  { label: "Crema",         bg: "#faf7f2" },
+  { label: "Azzurro",       bg: "#f0f4ff" },
+  { label: "Rosa",          bg: "#fff0f5" },
 ];
 
 const TIMEOUT_OPTIONS = [
@@ -120,149 +120,175 @@ export default function SettingsPanel({
   };
 
   const SECTIONS = [
-    { id:"tema",     label:"🎨 Tema" },
-    { id:"sicurezza",label:"🔒 Sicurezza" },
-    { id:"sessione", label:"⏱ Sessione" },
-    { id:"account",  label:"👤 Account" },
+    { id: "tema",      label: "🎨 Tema & Stile" },
+    { id: "sicurezza", label: "🔒 Sicurezza" },
+    { id: "sessione",  label: "⏱ Sessione" },
+    { id: "account",   label: "👤 Account" },
   ];
 
-  const inp = { width:"100%", padding:"8px 10px", borderRadius:8, border:`1px solid ${c.border}`, background:c.inputBg, color:c.text, fontSize:13, outline:"none", boxSizing:"border-box" };
-  const lbl = (t) => <div style={{ fontSize:10, color:c.textHint, letterSpacing:1, marginBottom:4, marginTop:10 }}>{t}</div>;
+  const inp = { width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.inputBg, color: c.text, fontSize: 13, outline: "none", boxSizing: "border-box" };
+  const lbl = (t) => <div style={{ fontSize: 10, color: c.textHint, letterSpacing: 1, marginBottom: 6, marginTop: 14 }}>{t}</div>;
 
   const currentPin = pinStep === "enter" ? pinInput : pinStep === "confirm" ? pinConfirm : "";
   const pinDots = (val) => Array.from({ length: 6 }, (_, i) => (
-    <div key={i} style={{ width:12, height:12, borderRadius:"50%", background: i < val.length ? neon : "transparent", border:`2px solid ${i < val.length ? neon : c.border}`, transition:"all .2s" }}/>
+    <div key={i} style={{ width: 12, height: 12, borderRadius: "50%", background: i < val.length ? c.accent : "transparent", border: `2px solid ${i < val.length ? c.accent : c.border}`, transition: "all .2s" }}/>
   ));
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:100, display:"flex", alignItems:"flex-start", justifyContent:"flex-start" }}>
-      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.5)" }}/>
-      <div style={{ position:"relative", zIndex:1, marginTop:60, marginLeft:12, width:340, background:c.surface2, border:`1px solid ${c.border}`, borderRadius:16, boxShadow:"0 8px 40px rgba(0,0,0,0.4)", display:"flex", flexDirection:"column", maxHeight:"calc(100vh - 80px)", overflow:"hidden" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "flex-start", justifyContent: "flex-start" }}>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}/>
+      <div style={{ position: "relative", zIndex: 1, marginTop: 60, marginLeft: 12, width: 350, background: c.surface2, border: `1px solid ${c.border}`, borderRadius: 16, boxShadow: "0 12px 48px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 80px)", overflow: "hidden" }}>
 
         {/* Header */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", borderBottom:`1px solid ${c.border}`, flexShrink:0 }}>
-          <div style={{ fontSize:16, fontWeight:600, color:c.text }}>Impostazioni</div>
-          <button onClick={onClose} style={{ background:"transparent", border:"none", color:c.textMuted, cursor:"pointer", fontSize:20 }}>×</button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${c.border}`, flexShrink: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: c.text }}>Impostazioni</div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: c.textMuted, cursor: "pointer", fontSize: 20 }}>×</button>
         </div>
 
         {/* Tabs sezioni */}
-        <div style={{ display:"flex", gap:4, padding:"10px 12px", borderBottom:`1px solid ${c.border}`, flexShrink:0, flexWrap:"wrap" }}>
+        <div style={{ display: "flex", gap: 4, padding: "10px 12px", borderBottom: `1px solid ${c.border}`, flexShrink: 0, flexWrap: "wrap" }}>
           {SECTIONS.map(s => (
             <button key={s.id} onClick={() => setSection(s.id)}
-              style={{ padding:"5px 10px", borderRadius:8, border:`1px solid ${section===s.id?neon:c.border}`, background:section===s.id?c.accentBg:"transparent", color:section===s.id?neon:c.textMuted, cursor:"pointer", fontSize:11, fontWeight:section===s.id?600:400 }}>
+              style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${section===s.id?c.accent:c.border}`, background: section===s.id?c.accentBg:"transparent", color: section===s.id?c.accent:c.textMuted, cursor: "pointer", fontSize: 11, fontWeight: section===s.id?600:400, transition: "all .2s" }}>
               {s.label}
             </button>
           ))}
         </div>
 
-        <div style={{ overflow:"auto", flex:1, padding:"14px 16px" }}>
+        <div style={{ overflow: "auto", flex: 1, padding: "14px 16px" }}>
 
           {/* ── TEMA ── */}
           {section === "tema" && <>
-            <div style={{ fontSize:11, color:c.textHint, letterSpacing:1, marginBottom:10 }}>MODALITÀ</div>
-            {[{ label:"Tema scuro", desc:"Sfondo scuro con neon", val:dark, toggle:toggleDark },
-              { label:"Effetti luce", desc:"Particelle e animazioni glow", val:glowOn, toggle:toggleGlow }].map((s,i) => (
-              <div key={i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 0", borderBottom:`1px solid ${c.border}` }}>
-                <div><div style={{ fontSize:14, fontWeight:500, color:c.text }}>{s.label}</div><div style={{ fontSize:11, color:c.textMuted, marginTop:2 }}>{s.desc}</div></div>
-                <Toggle on={s.val} onToggle={s.toggle}/>
+            <div style={{ fontSize: 11, color: c.textHint, letterSpacing: 1, marginBottom: 8 }}>MODALITÀ COLORI</div>
+            
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${c.border}` }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: c.text }}>{dark ? "Base Nera (Scritte Bianche)" : "Base Bianca (Scritte Nere)"}</div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>{dark ? "Modalità scura minimale ad alto contrasto" : "Modalità chiara pulita e luminosa"}</div>
               </div>
-            ))}
-
-            {lbl("COLORE NEON")}
-            <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:10 }}>
-              {NEON_PRESETS.map(p => (
-                <div key={p.color} onClick={() => { setNeon(p.color); setNeon2(p.color2); }}
-                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer" }}>
-                  <div style={{ width:32, height:32, borderRadius:8, background:`linear-gradient(135deg,${p.color},${p.color2})`, border:neon===p.color?`2.5px solid ${c.text}`:"2px solid transparent", boxShadow:neon===p.color?`0 0 8px ${p.color}`:"none", transition:"all .2s" }}/>
-                  <span style={{ fontSize:8, color:c.textHint }}>{p.label}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
-              <span style={{ fontSize:12, color:c.textMuted }}>Personalizzato:</span>
-              <input type="color" value={neon} onChange={e=>setNeon(e.target.value)} style={{ width:34, height:28, border:"none", borderRadius:6, cursor:"pointer", padding:1 }}/>
-              <input type="color" value={neon2} onChange={e=>setNeon2(e.target.value)} style={{ width:34, height:28, border:"none", borderRadius:6, cursor:"pointer", padding:1 }}/>
+              <Toggle on={dark} onToggle={toggleDark} color={c.accent} dark={dark}/>
             </div>
 
-            {lbl("SFONDO")}
-            <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${c.border}` }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: c.text }}>Effetti luce & Glow</div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>Particelle e sfumature animate</div>
+              </div>
+              <Toggle on={glowOn} onToggle={toggleGlow} color={c.accent} dark={dark}/>
+            </div>
+
+            {lbl("STILE E ACCENTO")}
+            <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 8 }}>
+              Scegli <strong>B&W (Bianco e Nero)</strong> o attiva un colore neon:
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+              {NEON_PRESETS.map(p => {
+                const isSelected = (p.isBW && (neon === "#ffffff" || neon === "#fff")) || (!p.isBW && neon === p.color);
+                return (
+                  <div key={p.label} onClick={() => { setNeon(p.color); setNeon2(p.color2); }}
+                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8,
+                      background: p.isBW ? (dark ? "#ffffff" : "#000000") : `linear-gradient(135deg,${p.color},${p.color2})`,
+                      border: isSelected ? `2.5px solid ${c.text}` : `1.5px solid ${c.border}`,
+                      boxShadow: isSelected ? (p.isBW ? "0 0 10px rgba(255,255,255,0.4)" : `0 0 10px ${p.color}`) : "none",
+                      transition: "all .2s",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: p.isBW ? (dark ? "#000" : "#fff") : "#fff",
+                      fontSize: 10, fontWeight: 700,
+                    }}>
+                      {p.isBW ? "BW" : ""}
+                    </div>
+                    <span style={{ fontSize: 9, color: isSelected ? c.accent : c.textHint, fontWeight: isSelected ? 600 : 400 }}>{p.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+              <span style={{ fontSize: 12, color: c.textMuted }}>Colore personalizzato:</span>
+              <input type="color" value={neon} onChange={e => { setNeon(e.target.value); setNeon2(e.target.value); }} style={{ width: 34, height: 28, border: "none", borderRadius: 6, cursor: "pointer", padding: 1 }}/>
+            </div>
+
+            {lbl("SFONDO BASE")}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
               {bgPresets.map(p => (
                 <div key={p.bg} onClick={() => setCurrentBg(p.bg)}
-                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer" }}>
-                  <div style={{ width:32, height:32, borderRadius:8, background:p.bg, border:currentBg===p.bg?`2.5px solid ${neon}`:`1.5px solid ${c.border}`, boxShadow:currentBg===p.bg?`0 0 6px ${neon}`:"none", transition:"all .2s" }}/>
-                  <span style={{ fontSize:8, color:c.textHint }}>{p.label}</span>
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: p.bg, border: currentBg === p.bg ? `2.5px solid ${c.accent}` : `1.5px solid ${c.border}`, boxShadow: currentBg === p.bg ? `0 0 6px ${c.accent}` : "none", transition: "all .2s" }}/>
+                  <span style={{ fontSize: 8, color: currentBg === p.bg ? c.accent : c.textHint }}>{p.label}</span>
                 </div>
               ))}
-              <input type="color" value={currentBg} onChange={e=>setCurrentBg(e.target.value)} style={{ width:32, height:32, border:"none", borderRadius:8, cursor:"pointer", padding:1 }} title="Personalizzato"/>
+              <input type="color" value={currentBg} onChange={e => setCurrentBg(e.target.value)} style={{ width: 32, height: 32, border: "none", borderRadius: 8, cursor: "pointer", padding: 1 }} title="Personalizzato"/>
             </div>
 
-            <button onClick={() => { setNeon("#ff6b9d"); setNeon2("#ff1493"); setBgDark("#0a0a0a"); setBgLight("#f5f5f7"); }}
-              style={{ width:"100%", padding:"8px", borderRadius:8, border:`1px solid ${c.border}`, background:"transparent", color:c.textMuted, cursor:"pointer", fontSize:12, marginTop:4 }}>
-              Ripristina predefiniti
+            <button onClick={() => { setNeon("#ffffff"); setNeon2("#ffffff"); setBgDark("#000000"); setBgLight("#ffffff"); }}
+              style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, cursor: "pointer", fontSize: 12, marginTop: 8 }}>
+              Ripristina predefiniti (Bianco & Nero)
             </button>
           </>}
 
           {/* ── SICUREZZA ── */}
           {section === "sicurezza" && <>
             {/* PIN */}
-            <div style={{ marginBottom:16 }}>
-              <div style={{ fontSize:14, fontWeight:600, color:c.text, marginBottom:4 }}>PIN di sblocco</div>
-              <div style={{ fontSize:12, color:c.textMuted, marginBottom:12 }}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: c.text, marginBottom: 4 }}>PIN di sblocco</div>
+              <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 12 }}>
                 {hasPin ? "PIN attivo — usa 6 cifre per sbloccare rapidamente." : "Imposta un PIN a 6 cifre per sblocco rapido."}
               </div>
 
-              {pinSuccess && <div style={{ padding:"8px 12px", background:"rgba(16,185,129,0.1)", border:"1px solid #10b981", borderRadius:8, color:"#10b981", fontSize:12, marginBottom:8 }}>{pinSuccess}</div>}
-              {pinErr && <div style={{ padding:"8px 12px", background:"rgba(239,68,68,0.1)", border:"1px solid #ef4444", borderRadius:8, color:"#ef4444", fontSize:12, marginBottom:8 }}>{pinErr}</div>}
+              {pinSuccess && <div style={{ padding: "8px 12px", background: "rgba(16,185,129,0.1)", border: "1px solid #10b981", borderRadius: 8, color: "#10b981", fontSize: 12, marginBottom: 8 }}>{pinSuccess}</div>}
+              {pinErr && <div style={{ padding: "8px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid #ef4444", borderRadius: 8, color: "#ef4444", fontSize: 12, marginBottom: 8 }}>{pinErr}</div>}
 
               {pinStep === "idle" && (
-                <div style={{ display:"flex", gap:8 }}>
+                <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => { setPinStep("enter"); setPinInput(""); setPinConfirm(""); setPinErr(""); }}
-                    style={{ flex:1, padding:"9px", borderRadius:9, border:`1px solid ${neon}`, background:c.accentBg, color:neon, cursor:"pointer", fontSize:13, fontWeight:500 }}>
+                    style={{ flex: 1, padding: "9px", borderRadius: 9, border: `1px solid ${c.accent}`, background: c.accentBg, color: c.accent, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
                     {hasPin ? "Cambia PIN" : "+ Imposta PIN"}
                   </button>
                   {hasPin && <button onClick={removePin}
-                    style={{ padding:"9px 14px", borderRadius:9, border:"1px solid #ef4444", background:"rgba(239,68,68,0.08)", color:"#ef4444", cursor:"pointer", fontSize:13 }}>
+                    style={{ padding: "9px 14px", borderRadius: 9, border: "1px solid #ef4444", background: "rgba(239,68,68,0.08)", color: "#ef4444", cursor: "pointer", fontSize: 13 }}>
                     Rimuovi
                   </button>}
                 </div>
               )}
 
               {(pinStep === "enter" || pinStep === "confirm") && (
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
-                  <div style={{ fontSize:13, color:c.textMuted }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                  <div style={{ fontSize: 13, color: c.textMuted }}>
                     {pinStep === "enter" ? "Inserisci nuovo PIN (6 cifre)" : "Conferma PIN"}
                   </div>
-                  <div style={{ display:"flex", gap:10 }}>{pinDots(currentPin)}</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, width:"100%" }}>
+                  <div style={{ display: "flex", gap: 10 }}>{pinDots(currentPin)}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, width: "100%" }}>
                     {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d,i) => (
                       <button key={i} onClick={() => { if (d==="⌫") { if(pinStep==="enter") setPinInput(p=>p.slice(0,-1)); else setPinConfirm(p=>p.slice(0,-1)); } else if(d!=="") handlePinDigit(String(d)); }}
-                        style={{ height:48, borderRadius:10, border:`1px solid ${d===""?"transparent":c.border}`, background:d===""?"transparent":"rgba(255,255,255,0.04)", color:c.text, fontSize:d==="⌫"?16:18, cursor:d===""?"default":"pointer" }}>
+                        style={{ height: 48, borderRadius: 10, border: `1px solid ${d===""?"transparent":c.border}`, background: d===""?"transparent":"rgba(255,255,255,0.04)", color: c.text, fontSize: d==="⌫"?16:18, cursor: d===""?"default":"pointer" }}>
                         {d}
                       </button>
                     ))}
                   </div>
                   <button onClick={() => { setPinStep("idle"); setPinInput(""); setPinConfirm(""); setPinErr(""); }}
-                    style={{ fontSize:12, color:c.textMuted, background:"transparent", border:"none", cursor:"pointer" }}>
+                    style={{ fontSize: 12, color: c.textMuted, background: "transparent", border: "none", cursor: "pointer" }}>
                     Annulla
                   </button>
                 </div>
               )}
             </div>
 
-            <div style={{ height:1, background:c.border, margin:"8px 0 16px" }}/>
+            <div style={{ height: 1, background: c.border, margin: "8px 0 16px" }}/>
 
             {/* Cambio password */}
             <div>
-              <div style={{ fontSize:14, fontWeight:600, color:c.text, marginBottom:4 }}>Cambia password</div>
-              {passSuccess && <div style={{ padding:"8px 12px", background:"rgba(16,185,129,0.1)", border:"1px solid #10b981", borderRadius:8, color:"#10b981", fontSize:12, marginBottom:8 }}>{passSuccess}</div>}
-              {passErr && <div style={{ padding:"8px 12px", background:"rgba(239,68,68,0.1)", border:"1px solid #ef4444", borderRadius:8, color:"#ef4444", fontSize:12, marginBottom:8 }}>{passErr}</div>}
+              <div style={{ fontSize: 14, fontWeight: 600, color: c.text, marginBottom: 4 }}>Cambia password</div>
+              {passSuccess && <div style={{ padding: "8px 12px", background: "rgba(16,185,129,0.1)", border: "1px solid #10b981", borderRadius: 8, color: "#10b981", fontSize: 12, marginBottom: 8 }}>{passSuccess}</div>}
+              {passErr && <div style={{ padding: "8px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid #ef4444", borderRadius: 8, color: "#ef4444", fontSize: 12, marginBottom: 8 }}>{passErr}</div>}
               {lbl("PASSWORD ATTUALE")}
               <input type="password" value={oldPassword} onChange={e=>setOldPassword(e.target.value)} placeholder="Password attuale" style={inp}/>
               {lbl("NUOVA PASSWORD")}
               <input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Minimo 6 caratteri" style={inp}/>
               {lbl("CONFERMA NUOVA")}
-              <input type="password" value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Ripeti la password" style={{ ...inp, border:`1px solid ${confirmNewPassword&&confirmNewPassword!==newPassword?"#ef4444":confirmNewPassword&&confirmNewPassword===newPassword?"#10b981":c.border}` }}/>
-              <button onClick={changePassword} style={{ width:"100%", marginTop:10, padding:"9px", borderRadius:9, border:`1px solid ${neon}`, background:c.accentBg, color:neon, cursor:"pointer", fontSize:13, fontWeight:500 }}>
+              <input type="password" value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Ripeti la password" style={{ ...inp, border: `1px solid ${confirmNewPassword&&confirmNewPassword!==newPassword?"#ef4444":confirmNewPassword&&confirmNewPassword===newPassword?"#10b981":c.border}` }}/>
+              <button onClick={changePassword} style={{ width: "100%", marginTop: 10, padding: "9px", borderRadius: 9, border: `1px solid ${c.accent}`, background: c.accentBg, color: c.accent, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
                 Aggiorna password
               </button>
             </div>
@@ -270,39 +296,39 @@ export default function SettingsPanel({
 
           {/* ── SESSIONE ── */}
           {section === "sessione" && <>
-            <div style={{ fontSize:14, fontWeight:600, color:c.text, marginBottom:4 }}>Blocco automatico</div>
-            <div style={{ fontSize:12, color:c.textMuted, marginBottom:14 }}>L'app si blocca automaticamente dopo il tempo di inattività selezionato.</div>
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: c.text, marginBottom: 4 }}>Blocco automatico</div>
+            <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 14 }}>L'app si blocca automaticamente dopo il tempo di inattività selezionato.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {TIMEOUT_OPTIONS.map(opt => (
                 <div key={opt.value} onClick={() => setTimeoutVal(opt.value)}
-                  style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"11px 14px", borderRadius:10, border:`1px solid ${timeout===opt.value?neon:c.border}`, background:timeout===opt.value?c.accentBg:"transparent", cursor:"pointer", transition:"all .2s" }}>
-                  <span style={{ fontSize:14, color:timeout===opt.value?neon:c.text }}>{opt.label}</span>
-                  {timeout===opt.value && <div style={{ width:18, height:18, borderRadius:"50%", background:neon, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, color:"#fff", fontWeight:700 }}>✓</div>}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: 10, border: `1px solid ${timeout===opt.value?c.accent:c.border}`, background: timeout===opt.value?c.accentBg:"transparent", cursor: "pointer", transition: "all .2s" }}>
+                  <span style={{ fontSize: 14, color: timeout===opt.value?c.accent:c.text }}>{opt.label}</span>
+                  {timeout===opt.value && <div style={{ width: 18, height: 18, borderRadius: "50%", background: c.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: c.accentText || "#000", fontWeight: 700 }}>✓</div>}
                 </div>
               ))}
             </div>
-            <button onClick={onLock} style={{ width:"100%", marginTop:16, padding:"11px", borderRadius:10, border:`1px solid ${neon}`, background:c.accentBg, color:neon, cursor:"pointer", fontSize:14, fontWeight:500 }}>
+            <button onClick={onLock} style={{ width: "100%", marginTop: 16, padding: "11px", borderRadius: 10, border: `1px solid ${c.accent}`, background: c.accentBg, color: c.accent, cursor: "pointer", fontSize: 14, fontWeight: 500 }}>
               🔒 Blocca ora
             </button>
           </>}
 
           {/* ── ACCOUNT ── */}
           {section === "account" && <>
-            <div style={{ padding:"14px 16px", background:c.accentBg2, borderRadius:12, marginBottom:16 }}>
+            <div style={{ padding: "14px 16px", background: c.accentBg2, borderRadius: 12, marginBottom: 16 }}>
               {(() => { const u = JSON.parse(localStorage.getItem("wfy_user")||"null"); return u ? <>
-                <div style={{ fontSize:11, color:c.textHint, letterSpacing:1, marginBottom:8 }}>ACCOUNT ATTIVO</div>
-                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                  <div style={{ width:40, height:40, borderRadius:"50%", background:`linear-gradient(135deg,${neon},${neon2})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:700, color:"#fff" }}>{u.nome?.charAt(0).toUpperCase()}</div>
-                  <div><div style={{ fontSize:14, fontWeight:500, color:c.text }}>{u.nome} {u.cognome}</div><div style={{ fontSize:12, color:c.textMuted }}>{u.email}</div></div>
+                <div style={{ fontSize: 11, color: c.textHint, letterSpacing: 1, marginBottom: 8 }}>ACCOUNT ATTIVO</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: c.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: c.accentText || "#000" }}>{u.nome?.charAt(0).toUpperCase()}</div>
+                  <div><div style={{ fontSize: 14, fontWeight: 500, color: c.text }}>{u.nome} {u.cognome}</div><div style={{ fontSize: 12, color: c.textMuted }}>{u.email}</div></div>
                 </div>
               </> : null; })()}
             </div>
-            <button onClick={onLogout} style={{ width:"100%", padding:"12px", borderRadius:10, border:`1px solid #ef4444`, background:"rgba(239,68,68,0.08)", color:"#ef4444", fontSize:14, cursor:"pointer", fontWeight:500, marginBottom: 16 }}>
+            <button onClick={onLogout} style={{ width: "100%", padding: "12px", borderRadius: 10, border: `1px solid #ef4444`, background: "rgba(239,68,68,0.08)", color: "#ef4444", fontSize: 14, cursor: "pointer", fontWeight: 500, marginBottom: 16 }}>
               Esci dall'account
             </button>
-            <div style={{ textAlign:"center", fontSize:11, color:c.textHint }}>
-              <a href={`${import.meta.env.BASE_URL}TERMS.txt`} target="_blank" rel="noopener noreferrer" style={{ color:c.textHint, textDecoration:"underline" }}>Termini, Condizioni & Privacy Policy</a>
-              <div style={{ marginTop:4 }}>App Offline-First. I dati rimangono solo sul tuo dispositivo.</div>
+            <div style={{ textAlign: "center", fontSize: 11, color: c.textHint }}>
+              <a href={`${import.meta.env.BASE_URL}TERMS.txt`} target="_blank" rel="noopener noreferrer" style={{ color: c.textHint, textDecoration: "underline" }}>Termini, Condizioni & Privacy Policy</a>
+              <div style={{ marginTop: 4 }}>App Offline-First. I dati rimangono solo sul tuo dispositivo.</div>
             </div>
           </>}
         </div>

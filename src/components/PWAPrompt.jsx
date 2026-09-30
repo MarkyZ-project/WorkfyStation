@@ -1,8 +1,5 @@
 import { useState, useEffect } from "react";
 
-const NEON = "#ff6b9d";
-const NEON2 = "#ff1493";
-
 function isIOS() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
@@ -22,8 +19,11 @@ export default function PWAPrompt({ c }) {
   const [installed, setInstalled] = useState(false);
   const [platform, setPlatform] = useState("desktop");
 
+  const accent = c?.accent || "#ffffff";
+  const accentText = c?.accentText || (accent === "#ffffff" ? "#000000" : "#ffffff");
+  const isBW = !c || c.isBW !== false;
+
   useEffect(() => {
-    // Non mostrare se già installata o già rifiutata
     if (isStandalone()) return;
     if (localStorage.getItem("wfy_pwa_dismissed")) return;
 
@@ -35,7 +35,6 @@ export default function PWAPrompt({ c }) {
     }
     if (isAndroid()) setPlatform("android");
 
-    // Ascolta evento installazione (Chrome/Android)
     const handler = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -43,7 +42,6 @@ export default function PWAPrompt({ c }) {
     };
     window.addEventListener("beforeinstallprompt", handler);
 
-    // Su desktop mostra comunque la guida dopo 5 secondi
     const timer = setTimeout(() => {
       if (!deferredPrompt) setShow(true);
     }, 5000);
@@ -61,12 +59,12 @@ export default function PWAPrompt({ c }) {
   }, []);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === "accepted") setInstalled(true);
-      setDeferredPrompt(null);
-      setShow(false);
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setInstalled(true);
+      setTimeout(() => setShow(false), 2000);
     }
   };
 
@@ -79,27 +77,24 @@ export default function PWAPrompt({ c }) {
 
   if (!show) return null;
 
-  const glowText = `0 0 8px ${NEON}, 0 0 16px ${NEON2}`;
-
   // Steps per iOS
   const iosSteps = [
-    { icon: "1️⃣", text: <>Tocca il bottone <strong style={{ color: NEON }}>Condividi</strong> in basso nel browser Safari</> },
-    { icon: "2️⃣", text: <>Scorri e tocca <strong style={{ color: NEON }}>"Aggiungi a schermata Home"</strong></> },
-    { icon: "3️⃣", text: <>Tocca <strong style={{ color: NEON }}>"Aggiungi"</strong> in alto a destra</> },
+    { icon: "1️⃣", text: <>Tocca il bottone <strong style={{ color: accent }}>Condividi</strong> in basso nel browser Safari</> },
+    { icon: "2️⃣", text: <>Scorri e tocca <strong style={{ color: accent }}>"Aggiungi a schermata Home"</strong></> },
+    { icon: "3️⃣", text: <>Tocca <strong style={{ color: accent }}>"Aggiungi"</strong> in alto a destra</> },
   ];
 
   // Steps per Android/Desktop
   const androidSteps = [
-    { icon: "1️⃣", text: <>Tocca il menu <strong style={{ color: NEON }}>⋮</strong> in alto a destra nel browser</> },
-    { icon: "2️⃣", text: <>Tocca <strong style={{ color: NEON }}>"Aggiungi a schermata Home"</strong> o <strong style={{ color: NEON }}>"Installa app"</strong></> },
-    { icon: "3️⃣", text: <>Tocca <strong style={{ color: NEON }}>"Aggiungi"</strong> per confermare</> },
+    { icon: "1️⃣", text: <>Tocca il menu <strong style={{ color: accent }}>⋮</strong> in alto a destra nel browser</> },
+    { icon: "2️⃣", text: <>Tocca <strong style={{ color: accent }}>"Aggiungi a schermata Home"</strong> o <strong style={{ color: accent }}>"Installa app"</strong></> },
+    { icon: "3️⃣", text: <>Tocca <strong style={{ color: accent }}>"Aggiungi"</strong> per confermare</> },
   ];
 
   return (
     <>
       <style>{`
         @keyframes slideUp { from{opacity:0;transform:translateY(100px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes pulse-neon { 0%,100%{box-shadow:0 0 10px ${NEON};} 50%{box-shadow:0 0 25px ${NEON},0 0 50px ${NEON2};} }
       `}</style>
 
       {/* Overlay sfondo */}
@@ -109,25 +104,25 @@ export default function PWAPrompt({ c }) {
       <div style={{
         position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)",
         width: "min(440px, calc(100vw - 32px))",
-        background: c.bg === "#0a0a0a" ? "#13101a" : "#fff",
-        border: `1px solid ${NEON}`,
+        background: c.dark ? (c.isBW ? "#121212" : "#13101a") : "#ffffff",
+        border: `1px solid ${c.border}`,
         borderRadius: 20, padding: 28, zIndex: 201,
         animation: "slideUp .4s cubic-bezier(.16,1,.3,1) both",
-        boxShadow: `0 0 40px rgba(255,107,157,0.2), 0 20px 60px rgba(0,0,0,0.5)`,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
       }}>
 
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
           <div style={{
-            width: 52, height: 52, borderRadius: 14,
-            background: "rgba(255,107,157,0.15)",
-            border: `1.5px solid ${NEON}`,
+            width: 48, height: 48, borderRadius: 12,
+            background: c.accentBg,
+            border: `1.5px solid ${c.accent}`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 26, flexShrink: 0,
-            animation: "pulse-neon 3s infinite",
+            fontSize: 22, fontWeight: 700, flexShrink: 0,
+            color: c.accent,
           }}>W</div>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: c.text, textShadow: glowText }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: c.text }}>
               Installa WorkfyStation
             </div>
             <div style={{ fontSize: 12, color: c.textMuted, marginTop: 2 }}>
@@ -148,8 +143,8 @@ export default function PWAPrompt({ c }) {
             <div key={i} style={{
               display: "flex", alignItems: "center", gap: 5,
               padding: "5px 10px", borderRadius: 20,
-              background: "rgba(255,107,157,0.08)",
-              border: "1px solid rgba(255,107,157,0.2)",
+              background: c.accentBg2,
+              border: `1px solid ${c.border}`,
               fontSize: 12, color: c.textMuted,
             }}>
               <span>{b.icon}</span> {b.text}
@@ -161,10 +156,10 @@ export default function PWAPrompt({ c }) {
         {deferredPrompt && (
           <button onClick={handleInstall} style={{
             width: "100%", padding: "14px", borderRadius: 12,
-            background: `linear-gradient(135deg, ${NEON}, ${NEON2})`,
-            border: "none", color: "#fff", fontSize: 15, fontWeight: 600,
+            background: accent,
+            border: "none", color: accentText, fontSize: 15, fontWeight: 600,
             cursor: "pointer", marginBottom: 10,
-            boxShadow: `0 4px 20px rgba(255,107,157,0.4)`,
+            boxShadow: isBW ? "0 4px 20px rgba(255,255,255,0.2)" : `0 4px 20px ${accent}44`,
           }}>
             {installed ? "✓ Installata!" : "⬇ Installa ora"}
           </button>
@@ -175,7 +170,7 @@ export default function PWAPrompt({ c }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
             <div style={{ fontSize: 12, color: c.textHint, letterSpacing: 1, marginBottom: 4 }}>COME INSTALLARE SU IPHONE / IPAD</div>
             {iosSteps.map((s, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: "rgba(255,107,157,0.06)", border: "1px solid rgba(255,107,157,0.15)" }}>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: c.accentBg2, border: `1px solid ${c.border}` }}>
                 <span style={{ fontSize: 18, flexShrink: 0 }}>{s.icon}</span>
                 <span style={{ fontSize: 13, color: c.text, lineHeight: 1.5 }}>{s.text}</span>
               </div>
@@ -190,11 +185,11 @@ export default function PWAPrompt({ c }) {
               {platform === "android" ? "COME INSTALLARE SU ANDROID" : "COME INSTALLARE SU PC"}
             </div>
             {(platform === "android" ? androidSteps : [
-              { icon: "1️⃣", text: <>Clicca sull'icona <strong style={{ color: NEON }}>⊕</strong> nella barra degli indirizzi di Chrome</> },
-              { icon: "2️⃣", text: <>Oppure clicca <strong style={{ color: NEON }}>⋮ → Installa WorkfyStation</strong></> },
-              { icon: "3️⃣", text: <>Clicca <strong style={{ color: NEON }}>"Installa"</strong> per confermare</> },
+              { icon: "1️⃣", text: <>Clicca sull'icona <strong style={{ color: accent }}>⊕</strong> nella barra degli indirizzi di Chrome</> },
+              { icon: "2️⃣", text: <>Oppure clicca <strong style={{ color: accent }}>⋮ → Installa WorkfyStation</strong></> },
+              { icon: "3️⃣", text: <>Clicca <strong style={{ color: accent }}>"Installa"</strong> per confermare</> },
             ]).map((s, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: "rgba(255,107,157,0.06)", border: "1px solid rgba(255,107,157,0.15)" }}>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: c.accentBg2, border: `1px solid ${c.border}` }}>
                 <span style={{ fontSize: 18, flexShrink: 0 }}>{s.icon}</span>
                 <span style={{ fontSize: 13, color: c.text, lineHeight: 1.5 }}>{s.text}</span>
               </div>
@@ -213,8 +208,8 @@ export default function PWAPrompt({ c }) {
           </button>
           <button onClick={dismissTemp} style={{
             flex: 1, padding: "10px", borderRadius: 10,
-            border: `1px solid ${NEON}`, background: "rgba(255,107,157,0.1)",
-            color: NEON, fontSize: 13, cursor: "pointer", fontWeight: 500,
+            border: `1px solid ${c.border}`, background: c.accentBg,
+            color: c.accent, fontSize: 13, cursor: "pointer", fontWeight: 500,
           }}>
             Dopo
           </button>

@@ -24,8 +24,8 @@ import MusicApp from "./tools/MusicApp";
 import TodoApp from "./tools/TodoApp";
 
 // ── Costanti colore ──
-const NEON = "#ff6b9d";
-const NEON2 = "#ff1493";
+const NEON = "#ffffff";
+const NEON2 = "#ffffff";
 const GOLD = "#FFD700";
 const GOLD2 = "#FFA500";
 
@@ -43,19 +43,46 @@ function CrownIcon({ size, color }) {
 
 // ── Theme ──
 function hexToRgb(hex) {
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  return `${r},${g},${b}`;
+  if (!hex || typeof hex !== "string") return "255,255,255";
+  let h = hex.trim().replace("#", "");
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  if (h.length === 6) {
+    const r = parseInt(h.slice(0,2),16) || 255;
+    const g = parseInt(h.slice(2,4),16) || 255;
+    const b = parseInt(h.slice(4,6),16) || 255;
+    return `${r},${g},${b}`;
+  }
+  return "255,255,255";
+}
+
+function isMonochrome(hex) {
+  if (!hex) return true;
+  const h = hex.trim().toLowerCase().replace("#", "");
+  if (h === "fff" || h === "ffffff" || h === "000" || h === "000000") return true;
+  if (h === "f5f5f7" || h === "f0f0f5" || h === "141414" || h === "0a0a0a") return true;
+  if (h.length === 6 && h[0] === h[2] && h[2] === h[4] && h[1] === h[3] && h[3] === h[5]) return true;
+  return false;
 }
 
 function useTheme() {
+  // Migrazione da default rosa a B&W (Base Nera)
+  if (!localStorage.getItem("wfy_bw_v2")) {
+    const cur = localStorage.getItem("wfy_neon");
+    if (!cur || cur === "#ff6b9d") {
+      localStorage.setItem("wfy_neon", "#ffffff");
+      localStorage.setItem("wfy_neon2", "#ffffff");
+      localStorage.setItem("wfy_bgdark", "#000000");
+      localStorage.setItem("wfy_bglight", "#ffffff");
+    }
+    localStorage.setItem("wfy_bw_v2", "1");
+  }
+
   const [dark,    setDark]       = useState(() => localStorage.getItem("wfy_dark")    !== "false");
   const [glowOn,  setGlowOn]     = useState(() => localStorage.getItem("wfy_glow")    !== "false");
-  const [neon,    setNeonRaw]    = useState(() => localStorage.getItem("wfy_neon")    || "#ff6b9d");
-  const [neon2,   setNeon2Raw]   = useState(() => localStorage.getItem("wfy_neon2")   || "#ff1493");
-  const [bgDark,  setBgDarkRaw]  = useState(() => localStorage.getItem("wfy_bgdark")  || "#0a0a0a");
-  const [bgLight, setBgLightRaw] = useState(() => localStorage.getItem("wfy_bglight") || "#f5f5f7");
+  const [neon,    setNeonRaw]    = useState(() => localStorage.getItem("wfy_neon")    || "#ffffff");
+  const [neon2,   setNeon2Raw]   = useState(() => localStorage.getItem("wfy_neon2")   || "#ffffff");
+  const [bgDark,  setBgDarkRaw]  = useState(() => localStorage.getItem("wfy_bgdark")  || "#000000");
+  const [bgLight, setBgLightRaw] = useState(() => localStorage.getItem("wfy_bglight") || "#ffffff");
 
   const toggleDark  = () => { const v=!dark;   setDark(v);   localStorage.setItem("wfy_dark",   v); };
   const toggleGlow  = () => { const v=!glowOn; setGlowOn(v); localStorage.setItem("wfy_glow",   v); };
@@ -68,19 +95,52 @@ function useTheme() {
 }
 
 function getC(dark, neon, neon2, bgDark, bgLight) {
+  const isBW = isMonochrome(neon);
   const rgb = hexToRgb(neon);
-  return dark ? {
-    bg: bgDark, surface: `rgba(${rgb},0.03)`, surface2: "#16161f",
-    border: `rgba(${rgb},0.2)`, text: "#fff",
-    textMuted: "rgba(255,255,255,0.6)", textHint: `rgba(${rgb},0.55)`,
-    accent: neon, accentBg: `rgba(${rgb},0.15)`, accentBg2: `rgba(${rgb},0.07)`,
-    headerBg: `rgba(${rgb},0.02)`, inputBg: `rgba(${rgb},0.05)`,
-  } : {
-    bg: bgLight, surface: "#ffffff", surface2: "#f0f0f5",
-    border: "#e0e0e0", text: "#111", textMuted: "#555", textHint: "#999",
-    accent: neon2, accentBg: `rgba(${hexToRgb(neon2)},0.09)`, accentBg2: `rgba(${hexToRgb(neon2)},0.04)`,
-    headerBg: "#ffffff", inputBg: "#fafafa",
-  };
+
+  if (dark) {
+    // BASE NERA, SCRITTE BIANCHE (Default)
+    const accent = isBW ? "#ffffff" : neon;
+    const accentRgb = isBW ? "255,255,255" : rgb;
+    return {
+      dark: true,
+      isBW,
+      bg: bgDark || "#000000",
+      surface: isBW ? "rgba(255,255,255,0.03)" : `rgba(${rgb},0.03)`,
+      surface2: isBW ? "#121212" : "#16161f",
+      border: isBW ? "rgba(255,255,255,0.14)" : `rgba(${rgb},0.22)`,
+      text: "#ffffff",
+      textMuted: "rgba(255,255,255,0.65)",
+      textHint: isBW ? "rgba(255,255,255,0.4)" : `rgba(${rgb},0.55)`,
+      accent: accent,
+      accentText: isBW ? "#000000" : "#ffffff",
+      accentBg: `rgba(${accentRgb},0.12)`,
+      accentBg2: `rgba(${accentRgb},0.06)`,
+      headerBg: isBW ? "rgba(255,255,255,0.02)" : `rgba(${rgb},0.02)`,
+      inputBg: "rgba(255,255,255,0.06)",
+    };
+  } else {
+    // BASE BIANCA, SCRITTE NERE (Viceversa)
+    const accent = isBW ? "#000000" : neon2;
+    const accentRgb = isBW ? "0,0,0" : hexToRgb(neon2);
+    return {
+      dark: false,
+      isBW,
+      bg: bgLight || "#ffffff",
+      surface: "#ffffff",
+      surface2: "#f3f3f5",
+      border: isBW ? "#e4e4e7" : "#e0e0e0",
+      text: "#0a0a0a",
+      textMuted: "#555555",
+      textHint: "#888888",
+      accent: accent,
+      accentText: "#ffffff",
+      accentBg: `rgba(${accentRgb},0.08)`,
+      accentBg2: `rgba(${accentRgb},0.04)`,
+      headerBg: "#ffffff",
+      inputBg: "#f4f4f6",
+    };
+  }
 }
 
 // ── Liste strumenti ──
@@ -112,7 +172,7 @@ function MobileDrawer({ c, active, setActive, onClose }) {
   return (
     <>
       <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:300, backdropFilter:"blur(4px)" }}/>
-      <div style={{ position:"fixed", bottom:64, left:0, right:0, zIndex:301, background:c.bg==="#0a0a0a"?"#13101a":"#fff", border:`1px solid ${c.border}`, borderRadius:"20px 20px 0 0", padding:"20px 16px 16px", animation:"slideUp .3s cubic-bezier(.16,1,.3,1) both" }}>
+      <div style={{ position:"fixed", bottom:64, left:0, right:0, zIndex:301, background: c.dark ? (c.isBW ? "#121212" : "#13101a") : "#fff", border:`1px solid ${c.border}`, borderRadius:"20px 20px 0 0", padding:"20px 16px 16px", animation:"slideUp .3s cubic-bezier(.16,1,.3,1) both" }}>
         <div style={{ width:36, height:4, borderRadius:2, background:c.border, margin:"0 auto 20px" }}/>
         <div style={{ fontSize:12, color:c.textHint, letterSpacing:1, marginBottom:12 }}>TUTTI GLI STRUMENTI</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10 }}>
@@ -130,7 +190,7 @@ function MobileDrawer({ c, active, setActive, onClose }) {
 }
 
 // ── Mini player ──
-function MiniPlayer({ audioState, audioRef, blobMap }) {
+function MiniPlayer({ audioState, audioRef, blobMap, c }) {
   const { currentId, songs, playing, currentTime, duration } = audioState;
   const currentSong = songs.find(s => s.id === currentId);
   const hasBlob = !!blobMap.current[currentId];
@@ -141,18 +201,18 @@ function MiniPlayer({ audioState, audioRef, blobMap }) {
     else audioRef.current.play().catch(()=>{});
   };
   return (
-    <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:150, background:"rgba(10,5,15,0.97)", borderTop:`1px solid ${NEON}44`, padding:"8px 16px", display:"flex", alignItems:"center", gap:12, backdropFilter:"blur(12px)" }}>
-      <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:"rgba(255,107,157,0.2)" }}>
-        <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg,${NEON},${NEON2})`, transition:"width .1s linear" }}/>
+    <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:150, background: c.dark ? "rgba(10,10,10,0.97)" : "rgba(255,255,255,0.97)", borderTop:`1px solid ${c.border}`, padding:"8px 16px", display:"flex", alignItems:"center", gap:12, backdropFilter:"blur(12px)" }}>
+      <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background: c.border }}>
+        <div style={{ height:"100%", width:`${pct}%`, background: c.accent, transition:"width .1s linear" }}/>
       </div>
       <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0 }}>
-        <div style={{ width:32, height:32, borderRadius:8, background:`linear-gradient(135deg,${NEON}66,${NEON2}44)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>{playing?"♫":"♪"}</div>
+        <div style={{ width:32, height:32, borderRadius:8, background: c.accentBg, border: `1px solid ${c.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color: c.accent, flexShrink:0 }}>{playing?"♫":"♪"}</div>
         <div style={{ minWidth:0 }}>
-          <div style={{ fontSize:12, fontWeight:600, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{currentSong.name}</div>
-          <div style={{ fontSize:10, color:`rgba(255,107,157,0.6)` }}>{playing?"In riproduzione":"In pausa"}</div>
+          <div style={{ fontSize:12, fontWeight:600, color: c.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{currentSong.name}</div>
+          <div style={{ fontSize:10, color: c.textHint }}>{playing?"In riproduzione":"In pausa"}</div>
         </div>
       </div>
-      <button onClick={togglePlay} style={{ width:36, height:36, borderRadius:"50%", background:`linear-gradient(135deg,${NEON},${NEON2})`, border:"none", cursor:"pointer", color:"#fff", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+      <button onClick={togglePlay} style={{ width:36, height:36, borderRadius:"50%", background: c.accent, border:"none", cursor:"pointer", color: c.accentText || "#000", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
         {playing?"⏸":"▶"}
       </button>
     </div>
@@ -340,8 +400,8 @@ const [screen, setScreen] = useState(() => {
 
   // ── Schermate speciali ──
   if (screen === "landing") return <LandingPage onEnter={() => { localStorage.setItem("wfy_landed", "1"); setScreen("register"); }} />;
-  if (screen === "register") return <RegisterScreen onDone={handleRegister}/>;
-  if (screen === "welcome")  return <WelcomeScreen user={user} onDone={handleWelcomeDone}/>;
+  if (screen === "register") return <RegisterScreen onDone={handleRegister} c={c}/>;
+  if (screen === "welcome")  return <WelcomeScreen user={user} onDone={handleWelcomeDone} c={c}/>;
   if (locked) return <LockScreen user={user} onUnlock={() => { setLocked(false); lastActivity.current=Date.now(); }} c={c}/>;
 
   // ── WorkingCode ──
@@ -400,7 +460,7 @@ const [screen, setScreen] = useState(() => {
       {showDrawer && <MobileDrawer c={c} active={active} setActive={setActive} onClose={()=>setShowDrawer(false)}/>}
 
       {/* Mini player */}
-      {showMiniPlayer && <MiniPlayer audioState={audioState} audioRef={audioRef} blobMap={blobMap}/>}
+      {showMiniPlayer && <MiniPlayer audioState={audioState} audioRef={audioRef} blobMap={blobMap} c={c}/>}
 
       {/* PWA */}
       <PWAPrompt c={c}/>
@@ -531,7 +591,7 @@ const [screen, setScreen] = useState(() => {
 
       {/* ── NAVBAR MOBILE ── */}
       {isMobile && (
-        <div style={{ position:"fixed", bottom:showMiniPlayer?56:0, left:0, right:0, zIndex:200, background:c.bg==="#0a0a0a"?"rgba(10,10,10,0.95)":"rgba(255,255,255,0.95)", borderTop:`1px solid ${c.border}`, backdropFilter:"blur(12px)", display:"flex", alignItems:"center", height:64, paddingBottom:"env(safe-area-inset-bottom)" }}>
+        <div style={{ position:"fixed", bottom:showMiniPlayer?56:0, left:0, right:0, zIndex:200, background: c.dark ? "rgba(10,10,10,0.95)" : "rgba(255,255,255,0.95)", borderTop:`1px solid ${c.border}`, backdropFilter:"blur(12px)", display:"flex", alignItems:"center", height:64, paddingBottom:"env(safe-area-inset-bottom)" }}>
           {MOBILE_TABS.map(t => {
             const isActive = t.id!=="more" && active===t.id;
             return (
