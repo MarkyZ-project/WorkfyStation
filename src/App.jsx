@@ -123,18 +123,18 @@ function getC(dark, neon, neon2, bgDark, bgLight, glass) {
       inputBg: "rgba(255,255,255,0.06)",
     };
     if (glass) {
-      base.surface = "rgba(255,255,255,0.04)";
-      base.surface2 = "rgba(255,255,255,0.06)";
-      base.border = "rgba(255,255,255,0.12)";
-      base.headerBg = "rgba(255,255,255,0.03)";
-      base.inputBg = "rgba(255,255,255,0.08)";
-      base.glassSurface = "rgba(255,255,255,0.06)";
-      base.glassBorder = `linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.15) 100%)`;
-      base.glassShadow = "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)";
-      base.glassBtn = "rgba(255,255,255,0.08)";
-      base.glassBtnHover = "rgba(255,255,255,0.14)";
-      base.glassBtnBorder = "rgba(255,255,255,0.18)";
-      base.glassHighlight = "rgba(255,255,255,0.12)";
+      base.surface = "rgba(255,255,255,0.07)";
+      base.surface2 = "rgba(255,255,255,0.12)";
+      base.border = "rgba(255,255,255,0.25)";
+      base.headerBg = "rgba(255,255,255,0.05)";
+      base.inputBg = "rgba(255,255,255,0.15)";
+      base.glassSurface = "rgba(255,255,255,0.12)";
+      base.glassBorder = `rgba(255,255,255,0.35)`;
+      base.glassShadow = "0 8px 32px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.3), inset 0 0 20px rgba(255,255,255,0.05)";
+      base.glassBtn = "rgba(255,255,255,0.15)";
+      base.glassBtnHover = "rgba(255,255,255,0.25)";
+      base.glassBtnBorder = "rgba(255,255,255,0.4)";
+      base.glassHighlight = "rgba(255,255,255,0.25)";
     }
     return base;
   } else {
@@ -160,18 +160,18 @@ function getC(dark, neon, neon2, bgDark, bgLight, glass) {
       inputBg: "#f4f4f6",
     };
     if (glass) {
-      base.surface = "rgba(255,255,255,0.65)";
-      base.surface2 = "rgba(255,255,255,0.50)";
-      base.border = "rgba(0,0,0,0.08)";
-      base.headerBg = "rgba(255,255,255,0.55)";
-      base.inputBg = "rgba(255,255,255,0.60)";
-      base.glassSurface = "rgba(255,255,255,0.45)";
-      base.glassBorder = `linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.4) 100%)`;
-      base.glassShadow = "0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6)";
-      base.glassBtn = "rgba(255,255,255,0.55)";
-      base.glassBtnHover = "rgba(255,255,255,0.75)";
-      base.glassBtnBorder = "rgba(0,0,0,0.10)";
-      base.glassHighlight = "rgba(255,255,255,0.35)";
+      base.surface = "rgba(255,255,255,0.6)";
+      base.surface2 = "rgba(255,255,255,0.5)";
+      base.border = "rgba(255,255,255,0.8)";
+      base.headerBg = "rgba(255,255,255,0.4)";
+      base.inputBg = "rgba(255,255,255,0.7)";
+      base.glassSurface = "rgba(255,255,255,0.4)";
+      base.glassBorder = `rgba(255,255,255,0.9)`;
+      base.glassShadow = "0 8px 32px rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,1), inset 0 0 20px rgba(255,255,255,0.4)";
+      base.glassBtn = "rgba(255,255,255,0.5)";
+      base.glassBtnHover = "rgba(255,255,255,0.7)";
+      base.glassBtnBorder = "rgba(255,255,255,0.9)";
+      base.glassHighlight = "rgba(255,255,255,0.5)";
     }
     return base;
   }
@@ -467,13 +467,26 @@ const [screen, setScreen] = useState(() => {
   const currentTool = TOOLS.find(t=>t.id===active) || { icon:"🏠", label:"Home" };
 
   return (
-    <div style={{ display:"flex", height:"100vh", background:c.bg, fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", color:c.text }}>
+    <div style={{ display:"flex", height:"100vh", background:c.bg, fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", color:c.text, position:"relative" }}>
+      {c.glass && c.dark && (
+        <>
+          <div style={{ position:"absolute", top:"-20%", left:"-10%", width:"50%", height:"50%", background:c.isBW?"rgba(255,255,255,0.03)":`radial-gradient(circle, rgba(${hexToRgb(neon)},0.15) 0%, transparent 70%)`, filter:"blur(80px)", pointerEvents:"none", zIndex:0 }}/>
+          <div style={{ position:"absolute", bottom:"-20%", right:"-10%", width:"60%", height:"60%", background:c.isBW?"rgba(255,255,255,0.02)":`radial-gradient(circle, rgba(${hexToRgb(neon2)},0.12) 0%, transparent 70%)`, filter:"blur(100px)", pointerEvents:"none", zIndex:0 }}/>
+        </>
+      )}
+      {c.glass && !c.dark && (
+        <>
+          <div style={{ position:"absolute", top:"-20%", left:"-10%", width:"50%", height:"50%", background:c.isBW?"rgba(0,0,0,0.02)":`radial-gradient(circle, rgba(${hexToRgb(neon)},0.1) 0%, transparent 70%)`, filter:"blur(80px)", pointerEvents:"none", zIndex:0 }}/>
+          <div style={{ position:"absolute", bottom:"-20%", right:"-10%", width:"60%", height:"60%", background:c.isBW?"rgba(0,0,0,0.01)":`radial-gradient(circle, rgba(${hexToRgb(neon2)},0.08) 0%, transparent 70%)`, filter:"blur(100px)", pointerEvents:"none", zIndex:0 }}/>
+        </>
+      )}
+      <div style={{ position:"relative", zIndex:1, display:"flex", width:"100%", height:"100%" }}>
       <style>{`
         ${glowOn?`@keyframes glow-pulse{0%,100%{box-shadow:0 0 8px ${neon};}50%{box-shadow:0 0 20px ${neon},0 0 40px ${neon2};}}`:""}
         @keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        .tool-btn:hover{background:${c.glass ? (c.glassBtnHover || c.accentBg) : c.accentBg}!important;${c.glass?'backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);':''}}
-        .tool-btn.active{background:${c.glass ? (c.glassBtn || c.accentBg) : c.accentBg}!important;border-color:${c.glass ? (c.glassBtnBorder || c.accent) : c.accent}!important;${c.glass?'backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);box-shadow:'+c.glassShadow+';':''}}
+        .tool-btn:hover{background:${c.glass ? (c.glassBtnHover || c.accentBg) : c.accentBg}!important;${c.glass?'backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);':''}}
+        .tool-btn.active{background:${c.glass ? (c.glassBtn || c.accentBg) : c.accentBg}!important;border-color:${c.glass ? (c.glassBtnBorder || c.accent) : c.accent}!important;${c.glass?'backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);box-shadow:'+c.glassShadow+';':''}}
         ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:${c.border};border-radius:2px;}
         input::placeholder,textarea::placeholder{color:${c.textHint};}
         button:active{transform:scale(0.97);}
@@ -625,7 +638,7 @@ const [screen, setScreen] = useState(() => {
 
       {/* ── NAVBAR MOBILE ── */}
       {isMobile && (
-        <div className={c.glass?"glass-surface glass-edge":""} style={{ position:"fixed", bottom:showMiniPlayer?56:0, left:0, right:0, zIndex:200, background: c.glass ? (c.dark?"rgba(10,10,10,0.55)":"rgba(255,255,255,0.55)") : (c.dark ? "rgba(10,10,10,0.95)" : "rgba(255,255,255,0.95)"), borderTop:c.glass?"none":`1px solid ${c.border}`, backdropFilter:c.glass?"blur(30px) saturate(200%)":"blur(12px)", display:"flex", alignItems:"center", height:64, paddingBottom:"env(safe-area-inset-bottom)", ...(c.glass?{boxShadow:"0 -4px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.12)"}:{}) }}>
+        <div className={c.glass?"glass-surface glass-edge":""} style={{ position:"fixed", bottom:showMiniPlayer?56:0, left:0, right:0, zIndex:200, background: c.glass ? (c.dark?"rgba(15,15,15,0.45)":"rgba(255,255,255,0.45)") : (c.dark ? "rgba(10,10,10,0.95)" : "rgba(255,255,255,0.95)"), borderTop:c.glass?"none":`1px solid ${c.border}`, backdropFilter:c.glass?"blur(40px) saturate(250%)":"blur(12px)", display:"flex", alignItems:"center", height:64, paddingBottom:"env(safe-area-inset-bottom)", ...(c.glass?{boxShadow:"0 -4px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.25)"}:{}) }}>
           {MOBILE_TABS.map(t => {
             const isActive = t.id!=="more" && active===t.id;
             return (
@@ -640,6 +653,7 @@ const [screen, setScreen] = useState(() => {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }
