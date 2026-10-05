@@ -93,10 +93,10 @@ export default function HomeApp({ c, user, onNavigate }) {
       <style>{`
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
-        .feat-card:hover { transform: translateY(-5px) !important; box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important; border-color: ${c.accent} !important; }
-        .why-card:hover { border-color: ${c.accent} !important; }
+        .feat-card:hover { transform: translateY(-5px) !important; box-shadow: ${c.glass ? '0 12px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15)' : '0 10px 30px rgba(0,0,0,0.3)'} !important; border-color: ${c.glass ? (c.dark?'rgba(255,255,255,0.2)':'rgba(0,0,0,0.12)') : c.accent} !important; }
+        .why-card:hover { border-color: ${c.glass ? (c.dark?'rgba(255,255,255,0.2)':'rgba(0,0,0,0.12)') : c.accent} !important; }
         .feat-card { transition: transform .25s, box-shadow .25s, border-color .25s !important; }
-        .why-card { transition: border-color .25s !important; }
+        .why-card { transition: border-color .25s, box-shadow .25s !important; }
       `}</style>
 
       {/* Hero */}
@@ -146,7 +146,7 @@ export default function HomeApp({ c, user, onNavigate }) {
               Inizia ora →
             </button>
             <button onClick={() => document.getElementById("features-section").scrollIntoView({ behavior: "smooth" })}
-              style={{ padding: "12px 28px", borderRadius: 30, border: `1.5px solid ${c.border}`, background: "transparent", color: c.text, fontSize: 15, cursor: "pointer", transition: "all .2s" }}>
+              className={c.glass?"glass-btn":""} style={{ padding: "12px 28px", borderRadius: 30, border: `1.5px solid ${c.glass ? (c.dark?'rgba(255,255,255,0.15)':'rgba(0,0,0,0.1)') : c.border}`, background: c.glass ? (c.dark?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.4)') : "transparent", color: c.text, fontSize: 15, cursor: "pointer", transition: "all .2s", backdropFilter: c.glass ? 'blur(16px)' : 'none' }}>
               Scopri di più
             </button>
           </div>
@@ -179,8 +179,8 @@ export default function HomeApp({ c, user, onNavigate }) {
 
         <div ref={scrollRef} style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 12, scrollbarWidth: "none", msOverflowStyle: "none" }}>
           {FEATURES.map((f, i) => (
-            <div key={i} className="feat-card" onClick={() => onNavigate(["note","foglio","disegno","slide","calc","cronometro","convertitore","imageeditor","pdfviewer"][i])}
-              style={{ flexShrink: 0, width: 200, background: c.surface, border: `1px solid ${c.border}`, borderRadius: 16, padding: 20, cursor: "pointer", position: "relative", overflow: "hidden" }}>
+            <div key={i} className={`feat-card${c.glass?' glass-edge':''}`} onClick={() => onNavigate(["note","foglio","disegno","slide","calc","cronometro","convertitore","imageeditor","pdfviewer"][i])}
+              style={{ flexShrink: 0, width: 200, background: c.glass ? (c.dark?'rgba(255,255,255,0.05)':'rgba(255,255,255,0.5)') : c.surface, border: `1px solid ${c.glass?(c.dark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.06)'):c.border}`, borderRadius: 16, padding: 20, cursor: "pointer", position: "relative", overflow: "hidden", backdropFilter: c.glass?'blur(20px) saturate(180%)':'none', boxShadow: c.glass?(c.glassShadow||'none'):'none' }}>
               <div style={{ width: 48, height: 48, borderRadius: 12, background: isBW ? c.accentBg : `${f.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 14, border: `1px solid ${isBW ? c.border : f.color + "33"}` }}>{f.icon}</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: c.text, marginBottom: 8 }}>{f.label}</div>
               <div style={{ fontSize: 12, color: c.textMuted, lineHeight: 1.6 }}>{f.desc}</div>
@@ -198,8 +198,8 @@ export default function HomeApp({ c, user, onNavigate }) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
           {WHY.map((w, i) => (
-            <div key={i} className="why-card"
-              style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 14, padding: "20px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div key={i} className={`why-card${c.glass?' glass-edge':''}`}
+              style={{ background: c.glass ? (c.dark?'rgba(255,255,255,0.04)':'rgba(255,255,255,0.45)') : c.surface, border: `1px solid ${c.glass?(c.dark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.06)'):c.border}`, borderRadius: 14, padding: "20px 18px", display: "flex", flexDirection: "column", gap: 10, backdropFilter: c.glass?'blur(20px) saturate(180%)':'none', boxShadow: c.glass?(c.glassShadow||'none'):'none' }}>
               <div style={{ fontSize: 28 }}>{w.icon}</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: c.text }}>{w.title}</div>
               <div style={{ fontSize: 13, color: c.textMuted, lineHeight: 1.6 }}>{w.desc}</div>

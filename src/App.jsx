@@ -79,6 +79,7 @@ function useTheme() {
 
   const [dark,    setDark]       = useState(() => localStorage.getItem("wfy_dark")    !== "false");
   const [glowOn,  setGlowOn]     = useState(() => localStorage.getItem("wfy_glow")    !== "false");
+  const [glass,   setGlassRaw]   = useState(() => localStorage.getItem("wfy_glass")   === "true");
   const [neon,    setNeonRaw]    = useState(() => localStorage.getItem("wfy_neon")    || "#ffffff");
   const [neon2,   setNeon2Raw]   = useState(() => localStorage.getItem("wfy_neon2")   || "#ffffff");
   const [bgDark,  setBgDarkRaw]  = useState(() => localStorage.getItem("wfy_bgdark")  || "#000000");
@@ -86,15 +87,16 @@ function useTheme() {
 
   const toggleDark  = () => { const v=!dark;   setDark(v);   localStorage.setItem("wfy_dark",   v); };
   const toggleGlow  = () => { const v=!glowOn; setGlowOn(v); localStorage.setItem("wfy_glow",   v); };
+  const toggleGlass = () => { const v=!glass;  setGlassRaw(v); localStorage.setItem("wfy_glass", v); };
   const setNeon     = v  => { setNeonRaw(v);   localStorage.setItem("wfy_neon",   v); };
   const setNeon2    = v  => { setNeon2Raw(v);  localStorage.setItem("wfy_neon2",  v); };
   const setBgDark   = v  => { setBgDarkRaw(v); localStorage.setItem("wfy_bgdark", v); };
   const setBgLight  = v  => { setBgLightRaw(v);localStorage.setItem("wfy_bglight",v); };
 
-  return { dark, glowOn, neon, neon2, bgDark, bgLight, toggleDark, toggleGlow, setNeon, setNeon2, setBgDark, setBgLight };
+  return { dark, glowOn, glass, neon, neon2, bgDark, bgLight, toggleDark, toggleGlow, toggleGlass, setNeon, setNeon2, setBgDark, setBgLight };
 }
 
-function getC(dark, neon, neon2, bgDark, bgLight) {
+function getC(dark, neon, neon2, bgDark, bgLight, glass) {
   const isBW = isMonochrome(neon);
   const rgb = hexToRgb(neon);
 
@@ -102,9 +104,10 @@ function getC(dark, neon, neon2, bgDark, bgLight) {
     // BASE NERA, SCRITTE BIANCHE (Default)
     const accent = isBW ? "#ffffff" : neon;
     const accentRgb = isBW ? "255,255,255" : rgb;
-    return {
+    const base = {
       dark: true,
       isBW,
+      glass: !!glass,
       bg: bgDark || "#000000",
       surface: isBW ? "rgba(255,255,255,0.03)" : `rgba(${rgb},0.03)`,
       surface2: isBW ? "#121212" : "#16161f",
@@ -119,13 +122,29 @@ function getC(dark, neon, neon2, bgDark, bgLight) {
       headerBg: isBW ? "rgba(255,255,255,0.02)" : `rgba(${rgb},0.02)`,
       inputBg: "rgba(255,255,255,0.06)",
     };
+    if (glass) {
+      base.surface = "rgba(255,255,255,0.04)";
+      base.surface2 = "rgba(255,255,255,0.06)";
+      base.border = "rgba(255,255,255,0.12)";
+      base.headerBg = "rgba(255,255,255,0.03)";
+      base.inputBg = "rgba(255,255,255,0.08)";
+      base.glassSurface = "rgba(255,255,255,0.06)";
+      base.glassBorder = `linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.15) 100%)`;
+      base.glassShadow = "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)";
+      base.glassBtn = "rgba(255,255,255,0.08)";
+      base.glassBtnHover = "rgba(255,255,255,0.14)";
+      base.glassBtnBorder = "rgba(255,255,255,0.18)";
+      base.glassHighlight = "rgba(255,255,255,0.12)";
+    }
+    return base;
   } else {
     // BASE BIANCA, SCRITTE NERE (Viceversa)
     const accent = isBW ? "#000000" : neon2;
     const accentRgb = isBW ? "0,0,0" : hexToRgb(neon2);
-    return {
+    const base = {
       dark: false,
       isBW,
+      glass: !!glass,
       bg: bgLight || "#ffffff",
       surface: "#ffffff",
       surface2: "#f3f3f5",
@@ -140,6 +159,21 @@ function getC(dark, neon, neon2, bgDark, bgLight) {
       headerBg: "#ffffff",
       inputBg: "#f4f4f6",
     };
+    if (glass) {
+      base.surface = "rgba(255,255,255,0.65)";
+      base.surface2 = "rgba(255,255,255,0.50)";
+      base.border = "rgba(0,0,0,0.08)";
+      base.headerBg = "rgba(255,255,255,0.55)";
+      base.inputBg = "rgba(255,255,255,0.60)";
+      base.glassSurface = "rgba(255,255,255,0.45)";
+      base.glassBorder = `linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.4) 100%)`;
+      base.glassShadow = "0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6)";
+      base.glassBtn = "rgba(255,255,255,0.55)";
+      base.glassBtnHover = "rgba(255,255,255,0.75)";
+      base.glassBtnBorder = "rgba(0,0,0,0.10)";
+      base.glassHighlight = "rgba(255,255,255,0.35)";
+    }
+    return base;
   }
 }
 
@@ -172,7 +206,7 @@ function MobileDrawer({ c, active, setActive, onClose }) {
   return (
     <>
       <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:300, backdropFilter:"blur(4px)" }}/>
-      <div style={{ position:"fixed", bottom:64, left:0, right:0, zIndex:301, background: c.dark ? (c.isBW ? "#121212" : "#13101a") : "#fff", border:`1px solid ${c.border}`, borderRadius:"20px 20px 0 0", padding:"20px 16px 16px", animation:"slideUp .3s cubic-bezier(.16,1,.3,1) both" }}>
+      <div className={c.glass?"glass-surface glass-edge":""} style={{ position:"fixed", bottom:64, left:0, right:0, zIndex:301, background: c.glass ? (c.dark?"rgba(15,15,15,0.65)":"rgba(255,255,255,0.55)") : (c.dark ? (c.isBW ? "#121212" : "#13101a") : "#fff"), border:c.glass?"none":`1px solid ${c.border}`, borderRadius:"20px 20px 0 0", padding:"20px 16px 16px", animation:"slideUp .3s cubic-bezier(.16,1,.3,1) both", ...(c.glass?{backdropFilter:"blur(30px) saturate(200%)", boxShadow:"0 -8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12)", border:`1px solid ${c.dark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.08)"}`}:{}) }}>
         <div style={{ width:36, height:4, borderRadius:2, background:c.border, margin:"0 auto 20px" }}/>
         <div style={{ fontSize:12, color:c.textHint, letterSpacing:1, marginBottom:12 }}>TUTTI GLI STRUMENTI</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10 }}>
@@ -201,7 +235,7 @@ function MiniPlayer({ audioState, audioRef, blobMap, c }) {
     else audioRef.current.play().catch(()=>{});
   };
   return (
-    <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:150, background: c.dark ? "rgba(10,10,10,0.97)" : "rgba(255,255,255,0.97)", borderTop:`1px solid ${c.border}`, padding:"8px 16px", display:"flex", alignItems:"center", gap:12, backdropFilter:"blur(12px)" }}>
+    <div className={c.glass?"glass-surface":""} style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:150, background: c.glass ? (c.dark?"rgba(10,10,10,0.55)":"rgba(255,255,255,0.55)") : (c.dark ? "rgba(10,10,10,0.97)" : "rgba(255,255,255,0.97)"), borderTop:c.glass?"none":`1px solid ${c.border}`, padding:"8px 16px", display:"flex", alignItems:"center", gap:12, backdropFilter:c.glass?"blur(30px) saturate(200%)":"blur(12px)", ...(c.glass?{boxShadow:"0 -2px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)"}:{}) }}>
       <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background: c.border }}>
         <div style={{ height:"100%", width:`${pct}%`, background: c.accent, transition:"width .1s linear" }}/>
       </div>
@@ -252,8 +286,8 @@ const [screen, setScreen] = useState(() => {
   const lastActivity = useRef(Date.now());
 
   // Tema
-  const { dark, glowOn, neon, neon2, bgDark, bgLight, toggleDark, toggleGlow, setNeon, setNeon2, setBgDark, setBgLight } = useTheme();
-  const c = getC(dark, neon, neon2, bgDark, bgLight);
+  const { dark, glowOn, glass, neon, neon2, bgDark, bgLight, toggleDark, toggleGlow, toggleGlass, setNeon, setNeon2, setBgDark, setBgLight } = useTheme();
+  const c = getC(dark, neon, neon2, bgDark, bgLight, glass);
 
   // Audio globale
   const audioRef = useRef(new Audio());
@@ -438,8 +472,8 @@ const [screen, setScreen] = useState(() => {
         ${glowOn?`@keyframes glow-pulse{0%,100%{box-shadow:0 0 8px ${neon};}50%{box-shadow:0 0 20px ${neon},0 0 40px ${neon2};}}`:""}
         @keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        .tool-btn:hover{background:${c.accentBg}!important;}
-        .tool-btn.active{background:${c.accentBg}!important;border-color:${c.accent}!important;}
+        .tool-btn:hover{background:${c.glass ? (c.glassBtnHover || c.accentBg) : c.accentBg}!important;${c.glass?'backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);':''}}
+        .tool-btn.active{background:${c.glass ? (c.glassBtn || c.accentBg) : c.accentBg}!important;border-color:${c.glass ? (c.glassBtnBorder || c.accent) : c.accent}!important;${c.glass?'backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);box-shadow:'+c.glassShadow+';':''}}
         ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:${c.border};border-radius:2px;}
         input::placeholder,textarea::placeholder{color:${c.textHint};}
         button:active{transform:scale(0.97);}
@@ -448,7 +482,7 @@ const [screen, setScreen] = useState(() => {
       {/* Modali */}
       {settingsOpen && (
         <SettingsPanel
-          dark={dark} glowOn={glowOn} toggleDark={toggleDark} toggleGlow={toggleGlow}
+          dark={dark} glowOn={glowOn} glass={glass} toggleDark={toggleDark} toggleGlow={toggleGlow} toggleGlass={toggleGlass}
           neon={neon} neon2={neon2} setNeon={setNeon} setNeon2={setNeon2}
           bgDark={bgDark} setBgDark={setBgDark} bgLight={bgLight} setBgLight={setBgLight}
           timeout={timeout} setTimeout={setTimeoutVal}
@@ -467,7 +501,7 @@ const [screen, setScreen] = useState(() => {
 
       {/* ── SIDEBAR DESKTOP ── */}
       {!isMobile && (
-        <div style={{ width:sideOpen?220:64, background:c.surface, borderRight:`1px solid ${c.border}`, display:"flex", flexDirection:"column", transition:"width .3s", overflow:"hidden", flexShrink:0 }}>
+        <div className={c.glass?"glass-surface glass-edge":""} style={{ width:sideOpen?220:64, background:c.glass?c.glassSurface:c.surface, borderRight:c.glass?"none":`1px solid ${c.border}`, display:"flex", flexDirection:"column", transition:"width .3s", overflow:"hidden", flexShrink:0, ...(c.glass?{boxShadow:c.glassShadow, borderRight:`1px solid ${c.glassBtnBorder}`}:{}) }}>
 
           {/* Header con Switcher App */}
           <div style={{ padding:"16px 12px", borderBottom:`1px solid ${c.border}`, display:"flex", alignItems:"center", gap:8, position: "relative" }}>
@@ -570,7 +604,7 @@ const [screen, setScreen] = useState(() => {
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
         {/* Header */}
-          <div style={{ padding:isMobile?"10px 16px":"14px 24px", borderBottom:`1px solid ${c.border}`, background:c.headerBg, display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
+          <div className={c.glass?"glass-surface":""} style={{ padding:isMobile?"10px 16px":"14px 24px", borderBottom:c.glass?"none":`1px solid ${c.border}`, background:c.glass?c.glassSurface:c.headerBg, display:"flex", alignItems:"center", gap:12, flexShrink:0, ...(c.glass?{boxShadow:`inset 0 -1px 0 ${c.glassBtnBorder}`}:{}) }}>
             {isMobile && (
               <div style={{ width:30, height:30, borderRadius:8, background:c.accentBg, border:`1px solid ${c.accent}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
                 <img src={`${import.meta.env.BASE_URL}WorkfyLogo.png`} alt="logo" style={{ width:20, height:20, objectFit:"contain" }}/>
@@ -591,7 +625,7 @@ const [screen, setScreen] = useState(() => {
 
       {/* ── NAVBAR MOBILE ── */}
       {isMobile && (
-        <div style={{ position:"fixed", bottom:showMiniPlayer?56:0, left:0, right:0, zIndex:200, background: c.dark ? "rgba(10,10,10,0.95)" : "rgba(255,255,255,0.95)", borderTop:`1px solid ${c.border}`, backdropFilter:"blur(12px)", display:"flex", alignItems:"center", height:64, paddingBottom:"env(safe-area-inset-bottom)" }}>
+        <div className={c.glass?"glass-surface glass-edge":""} style={{ position:"fixed", bottom:showMiniPlayer?56:0, left:0, right:0, zIndex:200, background: c.glass ? (c.dark?"rgba(10,10,10,0.55)":"rgba(255,255,255,0.55)") : (c.dark ? "rgba(10,10,10,0.95)" : "rgba(255,255,255,0.95)"), borderTop:c.glass?"none":`1px solid ${c.border}`, backdropFilter:c.glass?"blur(30px) saturate(200%)":"blur(12px)", display:"flex", alignItems:"center", height:64, paddingBottom:"env(safe-area-inset-bottom)", ...(c.glass?{boxShadow:"0 -4px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.12)"}:{}) }}>
           {MOBILE_TABS.map(t => {
             const isActive = t.id!=="more" && active===t.id;
             return (

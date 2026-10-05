@@ -50,7 +50,7 @@ function hashPassword(str) {
 }
 
 export default function SettingsPanel({
-  dark, glowOn, toggleDark, toggleGlow,
+  dark, glowOn, glass, toggleDark, toggleGlow, toggleGlass,
   neon, neon2, setNeon, setNeon2,
   bgDark, setBgDark, bgLight, setBgLight,
   timeout, setTimeout: setTimeoutVal,
@@ -137,7 +137,7 @@ export default function SettingsPanel({
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "flex-start", justifyContent: "flex-start" }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}/>
-      <div style={{ position: "relative", zIndex: 1, marginTop: 60, marginLeft: 12, width: 350, background: c.surface2, border: `1px solid ${c.border}`, borderRadius: 16, boxShadow: "0 12px 48px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 80px)", overflow: "hidden" }}>
+      <div className={c.glass?"glass-surface glass-edge":""} style={{ position: "relative", zIndex: 1, marginTop: 60, marginLeft: 12, width: 350, background: c.glass ? (c.dark ? "rgba(20,20,20,0.75)" : "rgba(255,255,255,0.65)") : c.surface2, border: `1px solid ${c.glass ? c.glassBtnBorder : c.border}`, borderRadius: 16, boxShadow: c.glass ? c.glassShadow : "0 12px 48px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 80px)", overflow: "hidden", ...(c.glass?{backdropFilter:"blur(30px) saturate(200%)", WebkitBackdropFilter:"blur(30px) saturate(200%)"}:{}) }}>
 
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${c.border}`, flexShrink: 0 }}>
@@ -176,6 +176,46 @@ export default function SettingsPanel({
               </div>
               <Toggle on={glowOn} onToggle={toggleGlow} color={c.accent} dark={dark}/>
             </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${c.border}` }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: c.text, display: "flex", alignItems: "center", gap: 8 }}>
+                  Liquid Glass
+                  <span style={{
+                    fontSize: 9, padding: "2px 8px", borderRadius: 10,
+                    background: glass ? (c.dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)") : "transparent",
+                    border: `1px solid ${glass ? c.accent : c.border}`,
+                    color: glass ? c.accent : c.textHint,
+                    fontWeight: 600, letterSpacing: 0.5,
+                    backdropFilter: glass ? "blur(8px)" : "none",
+                  }}>GLASS</span>
+                </div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>Effetto vetro sfocato stile Apple</div>
+              </div>
+              <Toggle on={glass} onToggle={toggleGlass} color={c.accent} dark={dark}/>
+            </div>
+
+            {glass && (
+              <div style={{
+                marginTop: 10, padding: "12px 14px", borderRadius: 12,
+                background: c.dark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.5)",
+                backdropFilter: "blur(20px) saturate(180%)",
+                border: `1px solid ${c.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}`,
+                boxShadow: c.dark
+                  ? "0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)"
+                  : "0 4px 16px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.5)",
+                position: "relative", overflow: "hidden",
+              }}>
+                <div style={{
+                  position: "absolute", top: 0, left: 0, right: 0, height: "50%",
+                  background: `linear-gradient(180deg, ${c.dark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.3)"} 0%, transparent 100%)`,
+                  borderRadius: "12px 12px 0 0", pointerEvents: "none",
+                }}/>
+                <div style={{ fontSize: 11, color: c.textMuted, position: "relative", zIndex: 1 }}>
+                  ✨ Anteprima Glass — superfici trasparenti con blur e riflessi luminosi applicati a tutta l'interfaccia.
+                </div>
+              </div>
+            )}
 
             {lbl("STILE E ACCENTO")}
             <div style={{ fontSize: 11, color: c.textMuted, marginBottom: 8 }}>
