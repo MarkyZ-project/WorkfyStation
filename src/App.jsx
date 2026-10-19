@@ -22,6 +22,7 @@ import ImageEditorApp from "./tools/ImageEditorApp";
 import PdfViewerApp from "./tools/PdfViewerApp";
 import MusicApp from "./tools/MusicApp";
 import TodoApp from "./tools/TodoApp";
+import NotePlusApp from "./tools/NotePlusApp";
 
 // ── Costanti colore ──
 const NEON = "#ffffff";
@@ -199,6 +200,7 @@ const TOOLS = [
   { id: "imageeditor",  label: "Editor Img",   icon: "🖼️" },
   { id: "pdfviewer",    label: "PDF / Word",   icon: "📄" },
   { id: "music",        label: "Musica",       icon: "🎵" },
+  { id: "noteplus",     label: "Note PLUS",    icon: "📓" },
 ];
 
 // ── Drawer mobile ──
@@ -460,6 +462,7 @@ const [screen, setScreen] = useState(() => {
     imageeditor:  <ImageEditorApp  c={c}/>,
     pdfviewer:    <PdfViewerApp    c={c}/>,
     music:        <MusicApp audioState={audioState} audioRef={audioRef} blobMap={blobMap} c={c}/>,
+    noteplus:     <NotePlusApp email={email} c={c}/>,
   };
 
   const glowS  = (color,size) => glowOn ? `0 0 ${size}px ${color}, 0 0 ${size*2}px ${color}` : "none";

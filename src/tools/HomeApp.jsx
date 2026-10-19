@@ -10,6 +10,7 @@ const FEATURES = [
   { icon: "🔄", label: "Convertitore",   desc: "Valute in tempo reale, lunghezza, peso, temperatura, area, velocità e volume.",                  color: "#f97316" },
   { icon: "🖼️", label: "Editor Img",    desc: "Modifica le tue immagini con filtri, preset, rotazione e scaricale in alta qualità.",             color: "#14b8a6" },
   { icon: "📄", label: "PDF / Word",     desc: "Visualizza file PDF e documenti Word direttamente nel browser, senza installare niente.",         color: "#8b5cf6" },
+  { icon: "📓", label: "Note PLUS",      desc: "Quaderni digitali con penna, evidenziatore, flashcard, registratore audio e sfondi personalizzati.", color: "#6366f1" },
 ];
 
 const WHY = [
@@ -179,7 +180,7 @@ export default function HomeApp({ c, user, onNavigate }) {
 
         <div ref={scrollRef} style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 12, scrollbarWidth: "none", msOverflowStyle: "none" }}>
           {FEATURES.map((f, i) => (
-            <div key={i} className={`feat-card${c.glass?' glass-edge':''}`} onClick={() => onNavigate(["note","foglio","disegno","slide","calc","cronometro","convertitore","imageeditor","pdfviewer"][i])}
+            <div key={i} className={`feat-card${c.glass?' glass-edge':''}`} onClick={() => onNavigate(["note","foglio","disegno","slide","calc","cronometro","convertitore","imageeditor","pdfviewer","noteplus"][i])}
               style={{ flexShrink: 0, width: 200, background: c.glass ? (c.dark?'rgba(255,255,255,0.05)':'rgba(255,255,255,0.5)') : c.surface, border: `1px solid ${c.glass?(c.dark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.06)'):c.border}`, borderRadius: 16, padding: 20, cursor: "pointer", position: "relative", overflow: "hidden", backdropFilter: c.glass?'blur(20px) saturate(180%)':'none', boxShadow: c.glass?(c.glassShadow||'none'):'none' }}>
               <div style={{ width: 48, height: 48, borderRadius: 12, background: isBW ? c.accentBg : `${f.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 14, border: `1px solid ${isBW ? c.border : f.color + "33"}` }}>{f.icon}</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: c.text, marginBottom: 8 }}>{f.label}</div>
