@@ -197,6 +197,24 @@ export default function PWAPrompt({ c }) {
           </div>
         )}
 
+        {/* Download nativo Windows per PC */}
+        {platform === "desktop" && (
+          <a
+            href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
+            download="WorkfyStation-Setup.exe"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              width: "100%", padding: "12px", borderRadius: 12,
+              background: c.accentBg2,
+              border: `1px solid ${c.border}`,
+              color: c.text, fontSize: 13, fontWeight: 600,
+              cursor: "pointer", marginBottom: 12, textDecoration: "none",
+            }}
+          >
+            💻 Scarica l'app per PC Windows (.exe)
+          </a>
+        )}
+
         {/* Bottoni azione */}
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={dismiss} style={{

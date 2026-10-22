@@ -137,6 +137,35 @@ export default function LandingPage({ onEnter }) {
           🚀 Entra in WorkfyStation
         </button>
 
+        {/* Download Desktop App Button */}
+        <a
+          href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
+          download="WorkfyStation-Setup.exe"
+          className="landing-btn"
+          style={{
+            position: "relative", zIndex: 2,
+            display: "inline-flex", alignItems: "center", gap: 10,
+            marginTop: 18,
+            padding: "14px 34px", borderRadius: 14,
+            border: "1.5px solid rgba(255,255,255,0.28)",
+            background: "rgba(255,255,255,0.1)",
+            backdropFilter: "blur(14px)",
+            WebkitBackdropFilter: "blur(14px)",
+            color: "#ffffff",
+            fontSize: 15, fontWeight: 600, cursor: "pointer",
+            textDecoration: "none",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+            transition: "all .25s ease", letterSpacing: 0.3,
+          }}
+        >
+          {/* Windows Logo Icon */}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.951-1.801" />
+          </svg>
+          Installa l'app su PC
+          <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.15)", fontWeight: 500 }}>.exe ~8MB</span>
+        </a>
+
         {/* Scroll hint */}
         <div style={{ position: "absolute", bottom: 24, animation: "float 2s ease-in-out infinite", opacity: 0.4, fontSize: 22, zIndex: 2 }}>↓</div>
       </div>
@@ -256,19 +285,41 @@ export default function LandingPage({ onEnter }) {
           <p style={{ fontSize: 16, color: "rgba(255,255,255,0.5)", marginBottom: 36, maxWidth: 450, margin: "0 auto 36px" }}>
             Entra in WorkfyStation e scopri un nuovo modo di lavorare. Gratis, per sempre.
           </p>
-          <button
-            className="landing-btn"
-            onClick={onEnter}
-            style={{
-              padding: "18px 56px", borderRadius: 16, border: "none",
-              background: "#ffffff",
-              color: "#000000", fontSize: 18, fontWeight: 700, cursor: "pointer",
-              boxShadow: "0 0 30px rgba(255,255,255,0.35)",
-              transition: "all .3s", letterSpacing: 0.4,
-            }}
-          >
-            🚀 Entra in WorkfyStation
-          </button>
+          <div style={{ display: "flex", gap: 14, justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              className="landing-btn"
+              onClick={onEnter}
+              style={{
+                padding: "18px 48px", borderRadius: 16, border: "none",
+                background: "#ffffff",
+                color: "#000000", fontSize: 17, fontWeight: 700, cursor: "pointer",
+                boxShadow: "0 0 30px rgba(255,255,255,0.35)",
+                transition: "all .3s", letterSpacing: 0.4,
+              }}
+            >
+              🚀 Entra in WorkfyStation
+            </button>
+            <a
+              href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
+              download="WorkfyStation-Setup.exe"
+              className="landing-btn"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 10,
+                padding: "16px 36px", borderRadius: 16,
+                border: "1.5px solid rgba(255,255,255,0.28)",
+                background: "rgba(255,255,255,0.08)",
+                backdropFilter: "blur(12px)",
+                color: "#ffffff", fontSize: 16, fontWeight: 600,
+                cursor: "pointer", textDecoration: "none",
+                transition: "all .3s",
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.951-1.801" />
+              </svg>
+              Installa l'app su PC (.exe)
+            </a>
+          </div>
           <div style={{ marginTop: 18, fontSize: 12, color: "rgba(255,255,255,0.35)" }}>
             Nessuna registrazione richiesta · 100% gratuito · I tuoi dati restano tuoi
           </div>
