@@ -1,4 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  COMPILERS_BY_LANG,
+  getPreferredCompiler,
+  setPreferredCompiler,
+  getCompilerOptions,
+  codeNeedsInput,
+  makeInteractive,
+  wandboxRun,
+  findPromptIndices,
+} from "./wcCompiler";
 
 const ACCENT  = "#ff2d55";
 const ACCENT2 = "#ff0020";
@@ -18,88 +28,6 @@ const ACTIVE_KEY = "wc_editor_active";
 
 function newTab(lang) {
   return { id: Date.now() + Math.random(), name: `main.${lang.ext}`, langId: lang.id, code: lang.template, saved: true };
-}
-
-function codeNeedsInput(code, langId) {
-  if (langId === "c")    return /scanf\s*\(|gets\s*\(|getchar\s*\(/.test(code);
-  if (langId === "cpp")  return /cin\s*>>|getline\s*\(\s*cin|scanf\s*\(/.test(code);
-  if (langId === "java") return /\.next\w*\s*\(/.test(code);
-  return false;
-}
-
-// Preprocess code so that prompts always appear on their own line
-// (needed when printf before scanf doesn't have \n)
-function makeInteractive(code, langId) {
-  if (langId !== "c" && langId !== "cpp") return code;
-
-  const lines = code.split('\n');
-  const result = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    const indent = lines[i].match(/^(\s*)/)[1];
-
-    // Detect scanf (C) or cin >> (C++)
-    const isScanf = langId === "c"
-      ? /^scanf\s*\(/.test(trimmed)
-      : /^(scanf\s*\(|cin\s*>>|getline\s*\(\s*cin)/.test(trimmed);
-
-    if (isScanf) {
-      // Look backwards for preceding printf/cout to check if it has \n
-      let prevHasNewline = false;
-      for (let j = i - 1; j >= Math.max(0, i - 5); j--) {
-        const pLine = lines[j].trim();
-        if (pLine === '' || pLine.startsWith('//') || pLine.startsWith('}') || pLine.startsWith('{')) continue;
-        if (pLine.includes('printf') || pLine.includes('cout') || pLine.includes('puts')) {
-          if (pLine.includes('\\n"') || pLine.includes('\\n\\') || pLine.includes('endl') || pLine.includes('puts')) {
-            prevHasNewline = true;
-          }
-          break;
-        }
-        break; // stop at first non-empty, non-comment line
-      }
-
-      if (!prevHasNewline) {
-        // Previous printf doesn't end with \n → inject one so the prompt is on its own line
-        if (langId === "c") result.push(indent + 'printf("\\n");');
-        else result.push(indent + 'cout << "\\n";');
-      }
-      // Always flush stdout to ensure prompt appears before scanf
-      if (langId === "c") result.push(indent + 'fflush(stdout);');
-      else result.push(indent + 'cout.flush();');
-    }
-
-    result.push(lines[i]);
-  }
-
-  return result.join('\n');
-}
-
-async function wandboxRun(compiler, code, stdin) {
-  const res = await fetch("https://wandbox.org/api/compile.json", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ compiler, code, stdin: stdin || "" }),
-  });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); }
-  catch { throw new Error("Risposta non valida:\n" + text.substring(0, 500)); }
-  if (!res.ok) throw new Error("Server " + res.status + ": " + (data.message || text));
-  return data;
-}
-
-// Find indices of "prompt" lines (lines ending with : or ?)
-function findPromptIndices(outputText) {
-  const lines = outputText.split("\n");
-  const indices = [];
-  for (let i = 0; i < lines.length; i++) {
-    const t = lines[i].trimEnd();
-    if (t.length > 1 && (t.endsWith(":") || t.endsWith("?"))) {
-      indices.push(i);
-    }
-  }
-  return indices;
 }
 
 // ── Code Editor ──
@@ -164,7 +92,7 @@ function FindBar({ code, onChange, onClose }) {
  ║  Viene mostrata SOLO la parte nuova dell'output. ║
  ╚══════════════════════════════════════════════════╝
 */
-function DevTerminal({ height, onRunStateChange, onTest, btn }) {
+function DevTerminal({ height, onRunStateChange, onTest, btn, onOpenTerminal, activeCompiler }) {
   const [lines, setLines]       = useState([]);
   const [mode, setMode]         = useState("idle"); // idle | input | busy | done
   const [inputVal, setInputVal] = useState("");
@@ -180,13 +108,13 @@ function DevTerminal({ height, onRunStateChange, onTest, btn }) {
   const add = useCallback((type, text) => setLines(p => [...p, { type, text }]), []);
 
   // ── STEP 0: Initial run (empty stdin) to discover first prompt ──
-  const startExecution = useCallback(async (compiler, code, langId) => {
+  const startExecution = useCallback(async (compiler, code, langId, options = "") => {
     // Preprocess code to ensure prompts are on their own lines
     const processedCode = codeNeedsInput(code, langId) ? makeInteractive(code, langId) : code;
-    setJob({ compiler, code: processedCode, langId });
+    setJob({ compiler, code: processedCode, langId, options });
     setInputs([]);
     setStep(0);
-    setLines([{ type: "system", text: "─── Terminale WorkingCode ───" }]);
+    setLines([{ type: "system", text: `─── Terminale WorkingCode [${compiler}] ───` }]);
 
     if (!codeNeedsInput(code, langId)) {
       // No scanf → run once and show everything
@@ -194,7 +122,7 @@ function DevTerminal({ height, onRunStateChange, onTest, btn }) {
       onRunStateChange(true);
       try {
         const t0 = Date.now();
-        const d = await wandboxRun(compiler, processedCode, "");
+        const d = await wandboxRun(compiler, processedCode, "", options);
         const el = ((Date.now() - t0) / 1000).toFixed(2);
         if (d.compiler_error && !d.program_output) {
           add("error", "❌ Errore compilazione:");
@@ -216,10 +144,10 @@ function DevTerminal({ height, onRunStateChange, onTest, btn }) {
     // Has scanf → step-by-step
     setMode("busy");
     onRunStateChange(true);
-    add("system", "⚙️ Compilazione...");
+    add("system", "⚙️ Compilazione in corso...");
 
     try {
-      const d = await wandboxRun(compiler, processedCode, "");
+      const d = await wandboxRun(compiler, processedCode, "", options);
       if (d.compiler_error && !d.program_output) {
         add("error", "❌ Errore compilazione:");
         d.compiler_error.split("\n").forEach(l => add("error", l));
@@ -270,7 +198,7 @@ function DevTerminal({ height, onRunStateChange, onTest, btn }) {
     try {
       const stdinStr = newInputs.join("\n") + "\n";
       const t0 = Date.now();
-      const d = await wandboxRun(job.compiler, job.code, stdinStr);
+      const d = await wandboxRun(job.compiler, job.code, stdinStr, job.options || "");
       const el = ((Date.now() - t0) / 1000).toFixed(2);
       const output = d.program_output || "";
       const outLines = output.split("\n");
@@ -334,11 +262,12 @@ function DevTerminal({ height, onRunStateChange, onTest, btn }) {
         <div style={{ display: "flex", gap: 5, marginRight: 4 }}>
           {["#ff5f57","#febc2e","#28c840"].map((c,i) => <div key={i} style={{ width:10,height:10,borderRadius:"50%",background:c,opacity:.8 }}/>)}
         </div>
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", flex: 1, textAlign: "center" }}>
-          TERMINALE
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", flex: 1, textAlign: "left", marginLeft: 4 }}>
+          TERMINALE {activeCompiler && <span style={{ color: ACCENT, fontWeight: 600 }}>[{activeCompiler}]</span>}
           {mode === "input" && <span style={{ color: "#34d399", marginLeft: 8 }}>● INSERISCI VALORE</span>}
           {mode === "busy"  && <span style={{ color: "#fbbf24", marginLeft: 8 }}>● ESECUZIONE</span>}
         </span>
+        {onOpenTerminal && btn("🖥️ Terminale Completo", onOpenTerminal, "#ff2d55", "Apri schermata Terminale dedicata")}
         {btn("🔬", onTest, "#a78bfa", "Test API")}
         {btn("🗑", clear, "rgba(255,255,255,0.25)", "Pulisci")}
       </div>
@@ -380,7 +309,7 @@ function DevTerminal({ height, onRunStateChange, onTest, btn }) {
 
 
 // ═══════════════════════════════════════
-export default function WorkingCodeEditor() {
+export default function WorkingCodeEditor({ onOpenTerminal }) {
   const validLangIds = LANGUAGES.map(l => l.id);
   const [tabs, setTabs] = useState(() => {
     try { const t = JSON.parse(localStorage.getItem(TABS_KEY)); if (t?.length) { const v = t.filter(tab => validLangIds.includes(tab.langId)); if (v.length) return v; } } catch {}
@@ -397,6 +326,16 @@ export default function WorkingCodeEditor() {
 
   const activeTab = tabs.find(t => t.id === (activeId || tabs[0]?.id)) || tabs[0];
   const lang      = LANGUAGES.find(l => l.id === activeTab?.langId) || LANGUAGES[0];
+  const [selectedCompiler, setSelectedCompiler] = useState(() => getPreferredCompiler(lang.id));
+
+  useEffect(() => {
+    setSelectedCompiler(getPreferredCompiler(lang.id));
+  }, [lang.id]);
+
+  const handleCompilerChange = (newComp) => {
+    setSelectedCompiler(newComp);
+    setPreferredCompiler(lang.id, newComp);
+  };
 
   useEffect(() => { localStorage.setItem(TABS_KEY, JSON.stringify(tabs)); }, [tabs]);
   useEffect(() => { if (activeId) localStorage.setItem(ACTIVE_KEY, activeId); }, [activeId]);
@@ -409,7 +348,7 @@ export default function WorkingCodeEditor() {
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [tabs, activeId]);
+  }, [tabs, activeId, selectedCompiler]);
   useEffect(() => {
     if (!dragging) return;
     const move = (e) => setPanelH(Math.max(120, Math.min(window.innerHeight - e.clientY, 520)));
@@ -427,7 +366,9 @@ export default function WorkingCodeEditor() {
   const handleRun = () => {
     if (!activeTab || running) return;
     setRunning(true); setStatus("🔄");
-    if (window.__wcTerminal) window.__wcTerminal.startExecution(lang.compiler, activeTab.code, lang.id);
+    const options = getCompilerOptions(lang.id);
+    const compToUse = selectedCompiler || lang.compiler;
+    if (window.__wcTerminal) window.__wcTerminal.startExecution(compToUse, activeTab.code, lang.id, options);
   };
   const testApi = async () => {
     setRunning(true);
@@ -466,6 +407,17 @@ export default function WorkingCodeEditor() {
         <select value={lang.id} onChange={e => { const l = LANGUAGES.find(x => x.id === e.target.value); setTabs(ts => ts.map(t => t.id === activeTab.id ? { ...t, langId: l.id, name: `main.${l.ext}`, code: l.template } : t)); }}
           style={{ padding: "5px 10px", borderRadius: 7, border: BORDER, background: BG3, color: "#fff", fontSize: 12, cursor: "pointer", outline: "none" }}>
           {LANGUAGES.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
+        </select>
+        <select
+          value={selectedCompiler}
+          onChange={e => handleCompilerChange(e.target.value)}
+          title="Seleziona il compilatore specifico da usare"
+          style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${ACCENT}55`, background: BG3, color: ACCENT, fontSize: 12, fontWeight: 600, cursor: "pointer", outline: "none" }}>
+          {(COMPILERS_BY_LANG[lang.id] || []).map(c => (
+            <option key={c.id} value={c.id} style={{ background: "#110006", color: "#fff" }}>
+              {c.label}
+            </option>
+          ))}
         </select>
         <div style={{ width: 1, height: 24, background: BORDER, margin: "0 4px" }}/>
         {btn("💾", saveTab, "#4ade80", "Salva")}
@@ -510,7 +462,14 @@ export default function WorkingCodeEditor() {
         <div style={{ width: 40, height: 2, borderRadius: 2, background: "rgba(255,45,85,0.3)" }}/>
       </div>
 
-      <DevTerminal height={panelH} onRunStateChange={(r) => { setRunning(r); if (!r) setTimeout(() => setStatus(""), 2000); }} onTest={testApi} btn={btn} />
+      <DevTerminal
+        height={panelH}
+        onRunStateChange={(r) => { setRunning(r); if (!r) setTimeout(() => setStatus(""), 2000); }}
+        onTest={testApi}
+        btn={btn}
+        onOpenTerminal={onOpenTerminal}
+        activeCompiler={selectedCompiler}
+      />
     </div>
   );
 }
