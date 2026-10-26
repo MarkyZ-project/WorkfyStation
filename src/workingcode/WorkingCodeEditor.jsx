@@ -9,6 +9,12 @@ import {
   wandboxRun,
   findPromptIndices,
 } from "./wcCompiler";
+import {
+  isTauriApp,
+  runPowerShellNative,
+  getDesktopInfoNative,
+  compileAndRunCLocalNative,
+} from "./tauriBridge";
 
 const ACCENT  = "#ff2d55";
 const ACCENT2 = "#ff0020";
@@ -93,31 +99,148 @@ function FindBar({ code, onChange, onClose }) {
  ╚══════════════════════════════════════════════════╝
 */
 function DevTerminal({ height, onRunStateChange, onTest, btn, onOpenTerminal, activeCompiler }) {
+  const [tabMode, setTabMode]   = useState("compiler"); // "compiler" | "powershell"
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [desktopInfo, setDesktopInfo] = useState(null);
+
+  // Compiler terminal state
   const [lines, setLines]       = useState([]);
   const [mode, setMode]         = useState("idle"); // idle | input | busy | done
   const [inputVal, setInputVal] = useState("");
   const [job, setJob]           = useState(null);
   const [inputs, setInputs]     = useState([]);
   const [step, setStep]         = useState(0);
+
+  // PowerShell terminal state
+  const [psCwd, setPsCwd]       = useState("C:\\Users");
+  const [psLines, setPsLines]   = useState([
+    { type: "sys", text: "Windows PowerShell" },
+    { type: "sys", text: "Copyright (C) Microsoft Corporation. Tutti i diritti riservati." },
+    { type: "blank", text: "" },
+  ]);
+  const [psInput, setPsInput]   = useState("");
+  const [psBusy, setPsBusy]     = useState(false);
+  const [psHistory, setPsHistory] = useState([]);
+  const [psHistIdx, setPsHistIdx] = useState(-1);
+
   const termRef  = useRef(null);
   const inputRef = useRef(null);
+  const psInputRef = useRef(null);
 
-  useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [lines]);
-  useEffect(() => { if (mode === "input" && inputRef.current) inputRef.current.focus(); }, [mode, lines]);
+  useEffect(() => {
+    isTauriApp().then(ok => {
+      setIsDesktop(ok);
+      if (ok) {
+        getDesktopInfoNative().then(info => {
+          setDesktopInfo(info);
+          if (info?.cwd) setPsCwd(info.cwd);
+          setPsLines(prev => [
+            ...prev,
+            { type: "info", text: `⚡ Connesso a PowerShell Windows (Utente: ${info.username})` },
+            { type: "info", text: `📁 Cartella: ${info.cwd}` },
+            { type: "blank", text: "" },
+          ]);
+        });
+      } else {
+        setPsLines(prev => [
+          ...prev,
+          { type: "warn", text: "⚠️ Versione Web: Il terminale PowerShell reale è attivo nell'applicazione PC (Desktop)." },
+          { type: "info", text: "💡 Scarica WorkfyStation per PC per eseguire qualsiasi comando PowerShell in locale." },
+          { type: "blank", text: "" },
+        ]);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
+  }, [lines, psLines, tabMode]);
+
+  useEffect(() => {
+    if (tabMode === "compiler" && mode === "input" && inputRef.current) {
+      inputRef.current.focus();
+    } else if (tabMode === "powershell" && psInputRef.current) {
+      psInputRef.current.focus();
+    }
+  }, [tabMode, mode, lines, psLines]);
 
   const add = useCallback((type, text) => setLines(p => [...p, { type, text }]), []);
+  const addPs = useCallback((type, text) => setPsLines(p => [...p, { type, text }]), []);
 
-  // ── STEP 0: Initial run (empty stdin) to discover first prompt ──
+  // ── ESECUZIONE POWERSHELL REALE ──
+  const handlePsCommand = async (cmd) => {
+    const trimmed = (cmd !== undefined ? cmd : psInput).trim();
+    if (!trimmed) return;
+    setPsInput("");
+    addPs("prompt", `PS ${psCwd}> ${trimmed}`);
+    setPsHistory(h => [...h, trimmed]);
+    setPsHistIdx(-1);
+
+    if (trimmed.toLowerCase() === "cls" || trimmed.toLowerCase() === "clear") {
+      setPsLines([]);
+      return;
+    }
+
+    setPsBusy(true);
+    try {
+      if (!isDesktop) {
+        addPs("warn", "⚠️ Sei sul browser web. Il terminale PowerShell reale richiede l'applicazione desktop Windows.");
+        addPs("info", "💡 Scarica l'app per PC dalla schermata iniziale o usa la scheda 'Compilatore C'!");
+        setPsBusy(false);
+        return;
+      }
+      const res = await runPowerShellNative(trimmed, psCwd);
+      if (res.cwd) setPsCwd(res.cwd);
+      if (res.stdout && res.stdout.trim()) {
+        res.stdout.split("\n").forEach(l => addPs("output", l.replace(/\r/g, "")));
+      }
+      if (res.stderr && res.stderr.trim()) {
+        res.stderr.split("\n").forEach(l => addPs("error", l.replace(/\r/g, "")));
+      }
+    } catch (e) {
+      addPs("error", "❌ " + (e.message || e));
+    } finally {
+      setPsBusy(false);
+    }
+  };
+
+  // ── STEP 0: Run code (local GCC if available in desktop app, else Wandbox) ──
   const startExecution = useCallback(async (compiler, code, langId, options = "") => {
-    // Preprocess code to ensure prompts are on their own lines
+    setTabMode("compiler");
     const processedCode = codeNeedsInput(code, langId) ? makeInteractive(code, langId) : code;
     setJob({ compiler, code: processedCode, langId, options });
     setInputs([]);
     setStep(0);
     setLines([{ type: "system", text: `─── Terminale WorkingCode [${compiler}] ───` }]);
 
+    // Prova compilazione locale se siamo su Desktop e GCC locale e disponibile
+    if (isDesktop && desktopInfo?.gcc_available && compiler.startsWith("gcc")) {
+      setMode("busy");
+      onRunStateChange(true);
+      add("system", "🖥️ Esecuzione con GCC locale di Windows...");
+      try {
+        const t0 = Date.now();
+        const res = await compileAndRunCLocalNative(processedCode, "gcc", options);
+        const el = ((Date.now() - t0) / 1000).toFixed(2);
+        if (!res.success && res.stderr) {
+          add("error", "❌ Errore compilazione locale:");
+          res.stderr.split("\n").forEach(l => add("error", l));
+        } else {
+          if (res.stdout) res.stdout.split("\n").forEach(l => add("output", l));
+          if (res.stderr) res.stderr.split("\n").forEach(l => add("warn", l));
+          add("blank", "");
+          add("status", "─".repeat(36));
+          add("status", `✅ Codice ${res.exit_code} · ${el}s (GCC Locale Windows)`);
+        }
+      } catch (e) {
+        add("error", "❌ Errore locale: " + e.message);
+      }
+      setMode("done");
+      onRunStateChange(false);
+      return;
+    }
+
     if (!codeNeedsInput(code, langId)) {
-      // No scanf → run once and show everything
       setMode("busy");
       onRunStateChange(true);
       try {
@@ -132,7 +255,7 @@ function DevTerminal({ height, onRunStateChange, onTest, btn, onOpenTerminal, ac
           (d.program_output || "(nessun output)").split("\n").forEach(l => add("output", l));
           if (d.program_error) d.program_error.split("\n").forEach(l => add("warn", l));
           add("blank", "");
-          add("status", `${"─".repeat(36)}`);
+          add("status", "─".repeat(36));
           add("status", `${(d.status||"0")==="0"?"✅":"❌"} Codice ${d.status||"0"} · ${el}s`);
         }
       } catch (e) { add("error", "❌ " + e.message); }
@@ -162,20 +285,18 @@ function DevTerminal({ height, onRunStateChange, onTest, btn, onOpenTerminal, ac
       const prompts = findPromptIndices(output);
 
       if (prompts.length > 0) {
-        // Show output up to and including first prompt
         for (let i = 0; i <= prompts[0]; i++) {
           add("output", outLines[i]);
         }
         setMode("input");
       } else {
-        // Has scanf but no recognizable prompts → show hint
         add("info", "Il programma è in attesa di input.");
         add("info", "Scrivi un valore e premi Invio.");
         setMode("input");
       }
     } catch (e) { add("error", "❌ " + e.message); setMode("done"); }
     onRunStateChange(false);
-  }, [add, onRunStateChange]);
+  }, [add, onRunStateChange, isDesktop, desktopInfo]);
 
   // ── STEP N: User entered a value → re-run with all values, show new output ──
   const handleUserInput = useCallback(async () => {
@@ -184,7 +305,6 @@ function DevTerminal({ height, onRunStateChange, onTest, btn, onOpenTerminal, ac
     setInputVal("");
     if (val.trim() === "") return;
 
-    // Echo the user's input in the terminal (like Dev-C++ shows what you typed)
     add("userinput", val);
 
     const newInputs = [...inputs, val];
@@ -204,15 +324,10 @@ function DevTerminal({ height, onRunStateChange, onTest, btn, onOpenTerminal, ac
       const outLines = output.split("\n");
       const prompts = findPromptIndices(output);
 
-      // We're at step `newStep` (0-based: we've entered newStep values)
-      // The prompt that asked for this value is prompts[newStep - 1]
-      // The next prompt (if any) is prompts[newStep]
-
-      const prevPrompt = prompts[newStep - 1]; // index of prompt that asked for this input
-      const nextPrompt = prompts[newStep];      // index of next prompt (if exists)
+      const prevPrompt = prompts[newStep - 1];
+      const nextPrompt = prompts[newStep];
 
       if (prevPrompt !== undefined) {
-        // Show output from after previous prompt to next prompt (inclusive) or end
         const from = prevPrompt + 1;
         const to = nextPrompt !== undefined ? nextPrompt + 1 : outLines.length;
 
@@ -221,9 +336,8 @@ function DevTerminal({ height, onRunStateChange, onTest, btn, onOpenTerminal, ac
         }
 
         if (nextPrompt !== undefined) {
-          setMode("input"); // wait for next value
+          setMode("input");
         } else {
-          // No more prompts → program finished
           const ok = (d.status || "0") === "0";
           if (d.program_error) d.program_error.split("\n").forEach(l => add("warn", l));
           add("blank", "");
@@ -232,7 +346,6 @@ function DevTerminal({ height, onRunStateChange, onTest, btn, onOpenTerminal, ac
           setMode("done");
         }
       } else {
-        // Couldn't find prompts → show full remaining output
         outLines.forEach(l => add("output", l));
         add("blank", "");
         add("status", "─".repeat(36));
@@ -243,66 +356,191 @@ function DevTerminal({ height, onRunStateChange, onTest, btn, onOpenTerminal, ac
     onRunStateChange(false);
   }, [mode, job, inputVal, inputs, step, add, onRunStateChange]);
 
-  const clear = () => { setLines([]); setMode("idle"); setInputs([]); setStep(0); setJob(null); };
+  const clear = () => {
+    if (tabMode === "compiler") {
+      setLines([]); setMode("idle"); setInputs([]); setStep(0); setJob(null);
+    } else {
+      setPsLines([]);
+    }
+  };
 
-  // Expose to parent
   useEffect(() => {
     window.__wcTerminal = { startExecution };
     return () => { delete window.__wcTerminal; };
   }, [startExecution]);
 
   const clr = (t) => {
-    const map = { system:"rgba(255,45,85,0.5)", output:"#e2e8f0", error:"#fca5a5", warn:"#fbbf24", userinput:"#60a5fa", info:"#34d399", status:"rgba(255,255,255,0.35)", prompt:"#34d399" };
+    const map = {
+      system: "rgba(255,45,85,0.6)",
+      sys: "#38bdf8",
+      output: "#e2e8f0",
+      error: "#fca5a5",
+      warn: "#fbbf24",
+      userinput: "#60a5fa",
+      info: "#34d399",
+      status: "rgba(255,255,255,0.45)",
+      prompt: "#a78bfa",
+    };
     return map[t] || "transparent";
   };
 
   return (
     <div style={{ height, flexShrink: 0, display: "flex", flexDirection: "column", background: "#020000" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "#0a0000", borderBottom: BORDER, flexShrink: 0 }}>
-        <div style={{ display: "flex", gap: 5, marginRight: 4 }}>
+      {/* Header and Tab Switcher */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "#0a0000", borderBottom: BORDER, flexShrink: 0, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 5, marginRight: 6 }}>
           {["#ff5f57","#febc2e","#28c840"].map((c,i) => <div key={i} style={{ width:10,height:10,borderRadius:"50%",background:c,opacity:.8 }}/>)}
         </div>
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", flex: 1, textAlign: "left", marginLeft: 4 }}>
-          TERMINALE {activeCompiler && <span style={{ color: ACCENT, fontWeight: 600 }}>[{activeCompiler}]</span>}
-          {mode === "input" && <span style={{ color: "#34d399", marginLeft: 8 }}>● INSERISCI VALORE</span>}
-          {mode === "busy"  && <span style={{ color: "#fbbf24", marginLeft: 8 }}>● ESECUZIONE</span>}
-        </span>
+
+        {/* Tab Switcher */}
+        <div style={{ display: "flex", background: "rgba(255,255,255,0.06)", borderRadius: 7, padding: 2, gap: 2 }}>
+          <button
+            onClick={() => setTabMode("compiler")}
+            style={{
+              padding: "4px 10px", borderRadius: 5, border: "none", cursor: "pointer",
+              fontSize: 11, fontWeight: tabMode === "compiler" ? 700 : 500,
+              background: tabMode === "compiler" ? "rgba(255,45,85,0.28)" : "transparent",
+              color: tabMode === "compiler" ? "#ffffff" : "rgba(255,255,255,0.5)",
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+            🔨 Compilatore C {activeCompiler && <span style={{ color: ACCENT, fontSize: 10 }}>[{activeCompiler}]</span>}
+          </button>
+          <button
+            onClick={() => setTabMode("powershell")}
+            style={{
+              padding: "4px 10px", borderRadius: 5, border: "none", cursor: "pointer",
+              fontSize: 11, fontWeight: tabMode === "powershell" ? 700 : 500,
+              background: tabMode === "powershell" ? "rgba(59,130,246,0.3)" : "transparent",
+              color: tabMode === "powershell" ? "#60a5fa" : "rgba(255,255,255,0.5)",
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+            ⚡ PowerShell {isDesktop ? "Windows (Reale)" : "(Desktop)"}
+          </button>
+        </div>
+
+        {/* Quick PowerShell buttons */}
+        {tabMode === "powershell" && (
+          <div style={{ display: "flex", gap: 4, marginLeft: 4 }}>
+            {["dir", "gcc --version", "cls"].map(cmd => (
+              <button
+                key={cmd}
+                onClick={() => handlePsCommand(cmd)}
+                style={{
+                  padding: "2px 7px", borderRadius: 5, border: `1px solid rgba(255,255,255,0.15)`,
+                  background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.7)",
+                  fontSize: 10, cursor: "pointer", fontFamily: "Consolas",
+                }}>
+                {cmd}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ flex: 1 }}/>
+
+        {tabMode === "compiler" && (
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginRight: 6 }}>
+            {mode === "input" && <span style={{ color: "#34d399" }}>● INSERISCI VALORE</span>}
+            {mode === "busy"  && <span style={{ color: "#fbbf24" }}>● ESECUZIONE</span>}
+          </span>
+        )}
+
         {onOpenTerminal && btn("🖥️ Terminale Completo", onOpenTerminal, "#ff2d55", "Apri schermata Terminale dedicata")}
-        {btn("🔬", onTest, "#a78bfa", "Test API")}
+        {tabMode === "compiler" && btn("🔬", onTest, "#a78bfa", "Test API")}
         {btn("🗑", clear, "rgba(255,255,255,0.25)", "Pulisci")}
       </div>
 
+      {/* Terminal Output Area */}
       <div ref={termRef} style={{ flex: 1, overflow: "auto", padding: "10px 14px", fontFamily: "'Consolas','Courier New',monospace", fontSize: 13, lineHeight: 1.65 }}>
-        {lines.length === 0 && <span style={{ color: "rgba(255,255,255,0.15)", fontStyle: "italic" }}>Premi ▶ Esegui (F5) per avviare...</span>}
-        {lines.map((l, i) => (
-          <div key={i} style={{ color: clr(l.type), minHeight: l.type === "blank" ? 6 : "auto" }}>
-            {l.type === "userinput"
-              ? <><span style={{ opacity: .5 }}>{">"} </span><span style={{ color: "#60a5fa", fontWeight: 600 }}>{l.text}</span></>
-              : l.text}
-          </div>
-        ))}
-        {mode === "busy" && <div style={{ color: "#fbbf24", marginTop: 4 }}><span style={{ animation: "wc-blink 1s infinite" }}>▌</span></div>}
+        {tabMode === "compiler" ? (
+          <>
+            {lines.length === 0 && <span style={{ color: "rgba(255,255,255,0.15)", fontStyle: "italic" }}>Premi ▶ Esegui (F5) per compilare ed avviare il codice...</span>}
+            {lines.map((l, i) => (
+              <div key={i} style={{ color: clr(l.type), minHeight: l.type === "blank" ? 6 : "auto" }}>
+                {l.type === "userinput"
+                  ? <><span style={{ opacity: .5 }}>{">"} </span><span style={{ color: "#60a5fa", fontWeight: 600 }}>{l.text}</span></>
+                  : l.text}
+              </div>
+            ))}
+            {mode === "busy" && <div style={{ color: "#fbbf24", marginTop: 4 }}><span style={{ animation: "wc-blink 1s infinite" }}>▌</span></div>}
+          </>
+        ) : (
+          <>
+            {psLines.map((l, i) => (
+              <div key={i} style={{ color: clr(l.type), minHeight: l.type === "blank" ? 6 : "auto" }}>
+                {l.text}
+              </div>
+            ))}
+            {psBusy && <div style={{ color: "#38bdf8", marginTop: 4 }}>Esecuzione comando in corso...</div>}
+          </>
+        )}
       </div>
 
-      <div style={{
-        display: "flex", alignItems: "center", gap: 6, padding: "8px 10px",
-        borderTop: `1px solid ${mode === "input" ? "rgba(52,211,153,0.3)" : BORDER}`,
-        background: mode === "input" ? "rgba(0,26,13,0.9)" : "#040000",
-      }}>
-        <span style={{ color: mode === "input" ? "#34d399" : "rgba(255,255,255,0.2)", fontSize: 14, fontFamily: "Consolas", fontWeight: 700 }}>
-          {mode === "input" ? "▶" : "$"}
-        </span>
-        <input
-          ref={inputRef}
-          value={inputVal}
-          onChange={e => setInputVal(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleUserInput(); } }}
-          placeholder={mode === "input" ? "Scrivi il valore e premi Invio..." : mode === "busy" ? "Attendere..." : "Pronto"}
-          disabled={mode !== "input"}
-          autoFocus={mode === "input"}
-          style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: mode === "input" ? "#60a5fa" : "#34d399", fontFamily: "'Consolas',monospace", fontSize: 14, caretColor: "#60a5fa" }}
-        />
-      </div>
+      {/* Terminal Input Bar */}
+      {tabMode === "compiler" ? (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 6, padding: "8px 10px",
+          borderTop: `1px solid ${mode === "input" ? "rgba(52,211,153,0.3)" : BORDER}`,
+          background: mode === "input" ? "rgba(0,26,13,0.9)" : "#040000",
+        }}>
+          <span style={{ color: mode === "input" ? "#34d399" : "rgba(255,255,255,0.2)", fontSize: 14, fontFamily: "Consolas", fontWeight: 700 }}>
+            {mode === "input" ? "▶" : "$"}
+          </span>
+          <input
+            ref={inputRef}
+            value={inputVal}
+            onChange={e => setInputVal(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleUserInput(); } }}
+            placeholder={mode === "input" ? "Scrivi il valore per scanf e premi Invio..." : mode === "busy" ? "Attendere..." : "Pronto per l'esecuzione"}
+            disabled={mode !== "input"}
+            autoFocus={mode === "input"}
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: mode === "input" ? "#60a5fa" : "#34d399", fontFamily: "'Consolas',monospace", fontSize: 14, caretColor: "#60a5fa" }}
+          />
+        </div>
+      ) : (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
+          borderTop: "1px solid rgba(59,130,246,0.3)", background: "#020712",
+        }}>
+          <span style={{ color: "#60a5fa", fontSize: 13, fontFamily: "Consolas", fontWeight: 600, whiteSpace: "nowrap" }}>
+            PS {psCwd}&gt;
+          </span>
+          <input
+            ref={psInputRef}
+            value={psInput}
+            onChange={e => setPsInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handlePsCommand(psInput);
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                if (psHistory.length > 0) {
+                  const nextIdx = psHistIdx === -1 ? psHistory.length - 1 : Math.max(0, psHistIdx - 1);
+                  setPsHistIdx(nextIdx);
+                  setPsInput(psHistory[nextIdx]);
+                }
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (psHistIdx !== -1) {
+                  const nextIdx = psHistIdx + 1;
+                  if (nextIdx < psHistory.length) {
+                    setPsHistIdx(nextIdx);
+                    setPsInput(psHistory[nextIdx]);
+                  } else {
+                    setPsHistIdx(-1);
+                    setPsInput("");
+                  }
+                }
+              }
+            }}
+            placeholder={isDesktop ? "Digita un comando PowerShell reale (dir, gcc, python...) e premi Invio..." : "PowerShell reale attiva su PC. Digita un comando..."}
+            disabled={psBusy}
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#f8fafc", fontFamily: "'Consolas',monospace", fontSize: 13, caretColor: "#60a5fa" }}
+          />
+          {psBusy && <span style={{ color: "#60a5fa", fontSize: 12 }}>⏳</span>}
+        </div>
+      )}
     </div>
   );
 }

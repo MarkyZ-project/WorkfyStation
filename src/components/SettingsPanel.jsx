@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Toggle from "./Toggle";
+import { isTauriApp, getDesktopInfoNative, triggerAppUpdateNative } from "../workingcode/tauriBridge";
 
 const NEON_PRESETS = [
   { label: "B&W",      color: "#ffffff", color2: "#ffffff", isBW: true },
@@ -119,11 +120,37 @@ export default function SettingsPanel({
     setPassSuccess("Password cambiata con successo!"); setTimeout(() => setPassSuccess(""), 3000);
   };
 
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [desktopInfo, setDesktopInfo] = useState(null);
+  const [updating, setUpdating] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState("");
+
+  useEffect(() => {
+    isTauriApp().then((ok) => {
+      setIsDesktop(ok);
+      if (ok) getDesktopInfoNative().then((info) => setDesktopInfo(info));
+    });
+  }, []);
+
+  const handleUpdate = async () => {
+    setUpdating(true);
+    setUpdateMsg("⏳ Controllo e download dell'aggiornamento in corso...");
+    try {
+      const res = await triggerAppUpdateNative();
+      setUpdateMsg("✅ " + res);
+    } catch (e) {
+      setUpdateMsg("❌ Errore: " + (e.message || e));
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const SECTIONS = [
     { id: "tema",      label: "🎨 Tema & Stile" },
     { id: "sicurezza", label: "🔒 Sicurezza" },
     { id: "sessione",  label: "⏱ Sessione" },
     { id: "account",   label: "👤 Account" },
+    { id: "aggiorna",  label: "🔄 Aggiornamenti" },
   ];
 
   const inp = { width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.inputBg, color: c.text, fontSize: 13, outline: "none", boxSizing: "border-box" };
@@ -371,6 +398,94 @@ export default function SettingsPanel({
               <div style={{ marginTop: 4 }}>App Offline-First. I dati rimangono solo sul tuo dispositivo.</div>
             </div>
           </>}
+
+          {/* ── AGGIORNAMENTI ── */}
+          {section === "aggiorna" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{
+                padding: "14px 16px", borderRadius: 12,
+                background: isDesktop ? "rgba(16,185,129,0.08)" : "rgba(59,130,246,0.08)",
+                border: `1px solid ${isDesktop ? "rgba(16,185,129,0.3)" : "rgba(59,130,246,0.3)"}`,
+                display: "flex", alignItems: "center", gap: 12,
+              }}>
+                <div style={{ fontSize: 28 }}>{isDesktop ? "💻" : "🌐"}</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: c.text }}>
+                    {isDesktop ? "WorkfyStation Desktop (Windows)" : "WorkfyStation Web"}
+                  </div>
+                  <div style={{ fontSize: 11, color: c.textMuted }}>
+                    {isDesktop
+                      ? `Versione v1.0.0 installata · Utente: ${desktopInfo?.username || "Windows"}`
+                      : "Stai visualizzando l'applicazione tramite browser web."}
+                  </div>
+                </div>
+              </div>
+
+              {/* Status & Update Button */}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: c.text, marginBottom: 6 }}>
+                  Aggiornamento Applicazione
+                </div>
+                <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 12, lineHeight: 1.5 }}>
+                  {isDesktop
+                    ? "Clicca sul pulsante per scaricare l'ultimo aggiornamento e installarlo automaticamente sopra a questa versione."
+                    : "Scarica l'applicazione desktop Windows per avere il terminale PowerShell reale e la suite completa offline."}
+                </div>
+
+                {updateMsg && (
+                  <div style={{
+                    padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 10,
+                    background: updateMsg.startsWith("❌") ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.1)",
+                    border: `1px solid ${updateMsg.startsWith("❌") ? "#ef4444" : "#10b981"}`,
+                    color: updateMsg.startsWith("❌") ? "#ef4444" : "#10b981",
+                  }}>
+                    {updateMsg}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleUpdate}
+                  disabled={updating}
+                  style={{
+                    width: "100%", padding: "12px", borderRadius: 10,
+                    border: `1px solid ${c.accent}`,
+                    background: c.accentBg, color: c.accent,
+                    fontSize: 14, fontWeight: 600, cursor: updating ? "not-allowed" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    marginBottom: 10,
+                  }}>
+                  {updating ? "⏳ Aggiornamento in corso..." : "🔄 Aggiorna Applicazione Ora"}
+                </button>
+
+                <a
+                  href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
+                  download="WorkfyStation-Setup.exe"
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    width: "100%", padding: "10px", borderRadius: 10,
+                    border: `1px solid ${c.border}`, background: "rgba(255,255,255,0.04)",
+                    color: c.text, fontSize: 12, textDecoration: "none", cursor: "pointer",
+                    boxSizing: "border-box",
+                  }}>
+                  📥 Scarica Setup Manuale (WorkfyStation-Setup.exe)
+                </a>
+              </div>
+
+              {/* Guida all'aggiornamento */}
+              <div style={{
+                marginTop: 6, padding: "12px 14px", borderRadius: 10,
+                background: "rgba(255,255,255,0.03)", border: `1px solid ${c.border}`,
+                fontSize: 11, color: c.textMuted, lineHeight: 1.6,
+              }}>
+                <div style={{ fontWeight: 700, color: c.text, marginBottom: 4 }}>
+                  💡 Come funziona l'aggiornamento:
+                </div>
+                <div>• <strong>Nessuna perdita dati:</strong> Note, progetti, impostazioni e account rimangono salvati al 100%.</div>
+                <div>• L'installatore aggiorna solo il codice e gli eseguibili dell'applicazione.</div>
+                <div>• Una volta completato il setup (richiede circa 5 secondi), riavvia l'app ed è pronta!</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

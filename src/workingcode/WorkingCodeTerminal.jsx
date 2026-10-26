@@ -12,6 +12,13 @@ import {
   wandboxRun,
   findPromptIndices,
 } from "./wcCompiler";
+import {
+  isTauriApp,
+  runPowerShellNative,
+  getDesktopInfoNative,
+  compileAndRunCLocalNative,
+  triggerAppUpdateNative,
+} from "./tauriBridge";
 
 const ACCENT = "#ff2d55";
 const ACCENT2 = "#ff0020";
@@ -45,6 +52,13 @@ int main() {
 }`;
 
 export default function WorkingCodeTerminal({ onSwitchToEditor }) {
+  // Mode: "powershell" (vero terminale Windows) | "compiler" (compilatore C dedicato)
+  const [activeTabMode, setActiveTabMode] = useState("powershell");
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [desktopInfo, setDesktopInfo] = useState(null);
+  const [currentCwd, setCurrentCwd] = useState("C:\\Users");
+
+  // Compiler state (per modalità C)
   const [langId, setLangId] = useState("c");
   const [compiler, setCompiler] = useState(() => getPreferredCompiler("c"));
   const [standard, setStandard] = useState("-std=c17");
@@ -52,23 +66,33 @@ export default function WorkingCodeTerminal({ onSwitchToEditor }) {
   const [activeFileName, setActiveFileName] = useState("main.c");
   const [activeCode, setActiveCode] = useState(DEFAULT_C_CODE);
 
-  // Terminal state
-  const [lines, setLines] = useState(() => [
+  // Terminal output lines
+  const [psLines, setPsLines] = useState([
+    { type: "sys", text: "Windows PowerShell" },
+    { type: "sys", text: "Copyright (C) Microsoft Corporation. Tutti i diritti riservati." },
+    { type: "blank", text: "" },
+    { type: "info", text: "⚡ Terminale Nativo WorkfyStation integrato con PowerShell reale." },
+    { type: "info", text: "💡 Digita qualsiasi comando PowerShell (dir, gcc, python, git...) o premi i tasti rapidi in alto." },
+    { type: "blank", text: "" },
+  ]);
+
+  const [cLines, setCLines] = useState([
     { type: "banner", text: "╔════════════════════════════════════════════════════════════════════════╗" },
-    { type: "banner", text: "║   🖥️  WORKINGCODE TERMINAL · AMBIENTE DI SVILUPPO C / C++ / JAVA       ║" },
+    { type: "banner", text: "║   🖥️  WORKINGCODE TERMINAL C/C++ · COMPILATORE RISPETTATO AL 100%       ║" },
     { type: "banner", text: "║   Compilatore attivo: GCC C (C17 / C23) con input interattivo           ║" },
-    { type: "banner", text: "║   Digita 'help' per la guida comandi oppure premi '▶ Esegui Codice'    ║" },
     { type: "banner", text: "╚════════════════════════════════════════════════════════════════════════╝" },
     { type: "blank", text: "" },
   ]);
 
-  const [mode, setMode] = useState("cli"); // "cli" | "input" | "busy"
-  const [cmdInput, setCmdInput] = useState("");
+  const [inputVal, setInputVal] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const [cInputMode, setCInputMode] = useState(false); // se il programma C richiede scanf
   const [history, setHistory] = useState([]);
   const [histIndex, setHistIndex] = useState(-1);
   const [quickCodeOpen, setQuickCodeOpen] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState("");
 
-  // Active step-by-step program execution state
+  // Stato per esecuzione interattiva C (scanf)
   const [execState, setExecState] = useState({
     code: "",
     compiler: "",
@@ -81,17 +105,30 @@ export default function WorkingCodeTerminal({ onSwitchToEditor }) {
   const termRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Auto-scroll on new output
+  // Verifica se siamo nell'app desktop reale
+  useEffect(() => {
+    isTauriApp().then((ok) => {
+      setIsDesktop(ok);
+      if (ok) {
+        getDesktopInfoNative().then((info) => {
+          setDesktopInfo(info);
+          if (info?.cwd) setCurrentCwd(info.cwd);
+        });
+      }
+    });
+  }, []);
+
+  // Auto-scroll terminal
   useEffect(() => {
     if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
-  }, [lines]);
+  }, [psLines, cLines, activeTabMode]);
 
   // Focus input
   useEffect(() => {
     if (inputRef.current) inputRef.current.focus();
-  }, [mode, lines]);
+  }, [activeTabMode, cInputMode, isBusy]);
 
-  // Load active tab from editor on mount
+  // Carica il codice dal localStorage dell'editor
   useEffect(() => {
     try {
       const tabs = JSON.parse(localStorage.getItem(TABS_KEY));
@@ -110,96 +147,156 @@ export default function WorkingCodeTerminal({ onSwitchToEditor }) {
     } catch {}
   }, []);
 
-  // Update preferred compiler when changed
-  const handleCompilerChange = (newComp) => {
-    setCompiler(newComp);
-    setPreferredCompiler(langId, newComp);
-    appendLine("info", `🔧 Compilatore impostato su: ${newComp}`);
-  };
+  const appendPs = useCallback((type, text) => {
+    setPsLines((p) => [...p, { type, text }]);
+  }, []);
 
-  const handleStandardChange = (newStd) => {
-    setStandard(newStd);
-    setCompilerOptions(langId, `${newStd}\n${extraFlags}`);
-    appendLine("info", `⚙️ Standard C impostato su: ${newStd}`);
-  };
-
-  const toggleFlag = (flag) => {
-    const flags = extraFlags.split(" ").filter(Boolean);
-    const newFlags = flags.includes(flag)
-      ? flags.filter((f) => f !== flag)
-      : [...flags, flag];
-    const joined = newFlags.join(" ");
-    setExtraFlags(joined);
-    setCompilerOptions(langId, `${standard}\n${joined}`);
-  };
-
-  const appendLine = useCallback((type, text) => {
-    setLines((prev) => [...prev, { type, text }]);
+  const appendC = useCallback((type, text) => {
+    setCLines((p) => [...p, { type, text }]);
   }, []);
 
   // ═════════════════════════════════════════════════════
-  // ESECUZIONE PROGRAMMA (Compilazione + Runtime Interattivo)
+  // 1. ESECUZIONE POWERSHELL REALE (Windows Desktop)
   // ═════════════════════════════════════════════════════
-  const runProgram = useCallback(
+  const executePowerShellCommand = async (commandStr) => {
+    const trimmed = commandStr.trim();
+    if (!trimmed) return;
+
+    appendPs("prompt", `PS ${currentCwd}> ${trimmed}`);
+    setHistory((h) => [...h, trimmed]);
+    setHistIndex(-1);
+    setIsBusy(true);
+
+    if (trimmed.toLowerCase() === "cls" || trimmed.toLowerCase() === "clear") {
+      setPsLines([]);
+      setIsBusy(false);
+      return;
+    }
+
+    try {
+      if (!isDesktop) {
+        // Avviso se utente è su browser web
+        appendPs(
+          "warn",
+          "⚠️ Sei sul browser web. Il terminale PowerShell reale richiede l'applicazione desktop Windows di WorkfyStation."
+        );
+        appendPs(
+          "info",
+          "💡 Clicca su 'Scarica per PC (.exe)' per installare l'app nativa e usare la vera console Windows!"
+        );
+        setIsBusy(false);
+        return;
+      }
+
+      // Esecuzione reale tramite Tauri Rust
+      const res = await runPowerShellNative(trimmed, currentCwd);
+
+      if (res.cwd) setCurrentCwd(res.cwd);
+
+      if (res.stdout && res.stdout.trim()) {
+        res.stdout.split("\n").forEach((line) => {
+          appendPs("output", line.replace(/\r/g, ""));
+        });
+      }
+
+      if (res.stderr && res.stderr.trim()) {
+        res.stderr.split("\n").forEach((line) => {
+          appendPs("error", line.replace(/\r/g, ""));
+        });
+      }
+
+      if (!res.stdout.trim() && !res.stderr.trim()) {
+        // Alcuni comandi non hanno output
+      }
+    } catch (err) {
+      appendPs("error", `Errore: ${err.message || err}`);
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  // ═════════════════════════════════════════════════════
+  // 2. COMPILAZIONE ED ESECUZIONE C (Rispettando il compilatore)
+  // ═════════════════════════════════════════════════════
+  const runCProgram = useCallback(
     async (codeToRun = activeCode, forcedCompiler = compiler) => {
       const fullOptions = `${standard}\n${extraFlags}`.trim();
       const needsInput = codeNeedsInput(codeToRun, langId);
       const processedCode = needsInput ? makeInteractive(codeToRun, langId) : codeToRun;
 
-      appendLine("cmd", `[COMPILA ED ESEGUI] ${activeFileName} --compilatore=${forcedCompiler}`);
-      if (fullOptions) appendLine("system", `⚙️ Opzioni compilatore: ${fullOptions.replace(/\n/g, " ")}`);
+      appendC("cmd", `[COMPILAZIONE & RUN] ${activeFileName} · Compilatore: ${forcedCompiler}`);
+      if (fullOptions) appendC("sys", `⚙️ Opzioni: ${fullOptions.replace(/\n/g, " ")}`);
 
       const t0 = Date.now();
-      setMode("busy");
+      setIsBusy(true);
 
+      // Prova prima la compilazione locale se in desktop app e c'è gcc
+      if (isDesktop && desktopInfo?.gcc_available && forcedCompiler.startsWith("gcc")) {
+        appendC("sys", "🖥️ Esecuzione con GCC locale del PC...");
+        try {
+          const res = await compileAndRunCLocalNative(
+            processedCode,
+            "gcc",
+            `${standard} ${extraFlags}`.trim()
+          );
+          const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+
+          if (!res.success && res.stderr) {
+            appendC("error", "❌ Errore compilazione locale:");
+            res.stderr.split("\n").forEach((l) => appendC("error", l));
+          } else {
+            if (res.stdout) res.stdout.split("\n").forEach((l) => appendC("output", l));
+            if (res.stderr) res.stderr.split("\n").forEach((l) => appendC("warn", l));
+            appendC("status", `✅ Completato in ${elapsed}s con codice ${res.exit_code}`);
+          }
+          setIsBusy(false);
+          return;
+        } catch {}
+      }
+
+      // Altrimenti: esecuzione con Wandbox rispettando esattamente la versione richiesta
       if (!needsInput) {
-        // Nessun input (nessuna scanf/cin) → esecuzione diretta completa
         try {
           const d = await wandboxRun(forcedCompiler, processedCode, "", fullOptions);
           const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
 
           if (d.compiler_error && !d.program_output) {
-            appendLine("error", "❌ ERRORE DI COMPILAZIONE:");
-            d.compiler_error.split("\n").forEach((l) => appendLine("error", l));
+            appendC("error", "❌ ERRORE DI COMPILAZIONE:");
+            d.compiler_error.split("\n").forEach((l) => appendC("error", l));
           } else {
             if (d.compiler_message) {
-              appendLine("warn", "⚠️ Note compilatore:");
-              d.compiler_message.split("\n").forEach((l) => appendLine("warn", l));
+              appendC("warn", "⚠️ Note del compilatore:");
+              d.compiler_message.split("\n").forEach((l) => appendC("warn", l));
             }
             if (d.program_output) {
-              d.program_output.split("\n").forEach((l) => appendLine("output", l));
+              d.program_output.split("\n").forEach((l) => appendC("output", l));
             } else {
-              appendLine("output", "(Nessun output a video)");
+              appendC("output", "(Nessun output a video)");
             }
             if (d.program_error) {
-              d.program_error.split("\n").forEach((l) => appendLine("warn", l));
+              d.program_error.split("\n").forEach((l) => appendC("warn", l));
             }
-            appendLine("blank", "");
-            appendLine(
+            appendC(
               "status",
-              `${(d.status || "0") === "0" ? "✅" : "❌"} Programma terminato con codice ${d.status || "0"} · Tempo: ${elapsed}s`
+              `${(d.status || "0") === "0" ? "✅" : "❌"} Terminato con codice ${d.status || "0"} in ${elapsed}s`
             );
           }
         } catch (err) {
-          appendLine("error", "❌ Errore esecuzione: " + err.message);
+          appendC("error", "❌ Errore: " + err.message);
         }
-        setMode("cli");
+        setIsBusy(false);
         return;
       }
 
-      // Con input interattivo (scanf / cin)
-      appendLine("system", "⚙️ Compilazione in corso...");
+      // Con input interattivo (scanf)
+      appendC("sys", "⚙️ Compilazione in corso...");
       try {
         const d = await wandboxRun(forcedCompiler, processedCode, "", fullOptions);
         if (d.compiler_error && !d.program_output) {
-          appendLine("error", "❌ ERRORE DI COMPILAZIONE:");
-          d.compiler_error.split("\n").forEach((l) => appendLine("error", l));
-          setMode("cli");
+          appendC("error", "❌ ERRORE DI COMPILAZIONE:");
+          d.compiler_error.split("\n").forEach((l) => appendC("error", l));
+          setIsBusy(false);
           return;
-        }
-
-        if (d.compiler_message) {
-          appendLine("warn", "⚠️ " + d.compiler_message.split("\n")[0]);
         }
 
         setExecState({
@@ -217,27 +314,26 @@ export default function WorkingCodeTerminal({ onSwitchToEditor }) {
 
         if (prompts.length > 0) {
           for (let i = 0; i <= prompts[0]; i++) {
-            appendLine("output", outLines[i]);
+            appendC("output", outLines[i]);
           }
         } else {
-          appendLine("info", "Il programma è in attesa di input (scanf).");
-          appendLine("info", "Digita il valore richiesto e premi Invio:");
+          appendC("info", "Il programma richiede un input (scanf). Digita il valore e premi Invio:");
         }
-        setMode("input");
+        setCInputMode(true);
       } catch (err) {
-        appendLine("error", "❌ Errore: " + err.message);
-        setMode("cli");
+        appendC("error", "❌ Errore: " + err.message);
       }
+      setIsBusy(false);
     },
-    [activeCode, activeFileName, compiler, extraFlags, langId, standard, appendLine]
+    [activeCode, activeFileName, compiler, desktopInfo, extraFlags, isDesktop, langId, standard, appendC]
   );
 
-  // Invia un input digitato dall'utente al programma in esecuzione
-  const handleProgramInput = async (userInputVal) => {
-    appendLine("userinput", userInputVal);
-    setMode("busy");
+  // Invia input scanf durante l'esecuzione del programma C
+  const handleCProgramInput = async (val) => {
+    appendC("userinput", val);
+    setIsBusy(true);
 
-    const newInputs = [...execState.inputs, userInputVal];
+    const newInputs = [...execState.inputs, val];
     const stdinPayload = newInputs.join("\n") + "\n";
     const nextStep = execState.step + 1;
 
@@ -257,257 +353,90 @@ export default function WorkingCodeTerminal({ onSwitchToEditor }) {
         const start = prompts[nextStep - 1] + 1;
         const end = prompts[nextStep];
         for (let i = start; i <= end; i++) {
-          if (i < outLines.length) appendLine("output", outLines[i]);
+          if (i < outLines.length) appendC("output", outLines[i]);
         }
         setExecState((prev) => ({
           ...prev,
           inputs: newInputs,
           step: nextStep,
         }));
-        setMode("input");
       } else {
-        // Nessun altro prompt: mostra output finale
         const start = prompts.length > 0 ? prompts[prompts.length - 1] + 1 : 0;
         for (let i = start; i < outLines.length; i++) {
           if (outLines[i] !== undefined && outLines[i] !== "") {
-            appendLine("output", outLines[i]);
+            appendC("output", outLines[i]);
           }
         }
         if (d.program_error) {
-          d.program_error.split("\n").forEach((l) => appendLine("warn", l));
+          d.program_error.split("\n").forEach((l) => appendC("warn", l));
         }
         const elapsed = ((Date.now() - execState.startTime) / 1000).toFixed(2);
-        appendLine("blank", "");
-        appendLine(
+        appendC(
           "status",
-          `${(d.status || "0") === "0" ? "✅" : "❌"} Programma terminato con codice ${d.status || "0"} · Tempo: ${elapsed}s`
+          `${(d.status || "0") === "0" ? "✅" : "❌"} Terminato con codice ${d.status || "0"} in ${elapsed}s`
         );
-        setMode("cli");
+        setCInputMode(false);
       }
     } catch (err) {
-      appendLine("error", "❌ Errore durante l'input: " + err.message);
-      setMode("cli");
+      appendC("error", "❌ Errore input: " + err.message);
+      setCInputMode(false);
     }
+    setIsBusy(false);
   };
 
-  // ═════════════════════════════════════════════════════
-  // INTERPRETE COMANDI TERMINALE (CLI)
-  // ═════════════════════════════════════════════════════
-  const handleCliCommand = (raw) => {
-    const trimmed = raw.trim();
-    if (!trimmed) return;
-
-    appendLine("cmd", `$ ${trimmed}`);
-    setHistory((prev) => [...prev, trimmed]);
-    setHistIndex(-1);
-
-    const parts = trimmed.split(" ").filter(Boolean);
-    const cmd = parts[0].toLowerCase();
-    const args = parts.slice(1);
-
-    switch (cmd) {
-      case "help":
-      case "aiuto":
-      case "?":
-        appendLine("info", "═══════════════ GUIDA COMANDI WORKINGCODE ═══════════════");
-        appendLine("output", "  run, esegui          Compila ed esegue il file C con il compilatore scelto");
-        appendLine("output", "  gcc, compile         Compila e verifica errori o warning del codice");
-        appendLine("output", "  compiler             Mostra o cambia il compilatore (es. compiler gcc-13.2.0-c)");
-        appendLine("output", "  std [c17|c11|c99]    Imposta lo standard C (-std=c17, -std=c99...)");
-        appendLine("output", "  flags [opzioni]      Imposta flag compilatore (es. flags -Wall -Wextra)");
-        appendLine("output", "  code, cat            Mostra il codice sorgente attuale nel terminale");
-        appendLine("output", "  edit, editor         Apre l'editor di testo o torna a WorkingCode Editor");
-        appendLine("output", "  files, ls, dir       Elenca i file / tab aperti salvati");
-        appendLine("output", "  clear, cls           Pulisce lo schermo del terminale");
-        appendLine("output", "  echo [testo]         Stampa un messaggio a video");
-        appendLine("output", "  whoami               Mostra informazioni sull'utente e piano Workfy");
-        appendLine("output", "  sysinfo              Informazioni sull'app desktop e compilatore");
-        appendLine("info", "═════════════════════════════════════════════════════════");
-        break;
-
-      case "run":
-      case "esegui":
-      case "start":
-        runProgram();
-        break;
-
-      case "gcc":
-      case "compile":
-      case "make":
-        appendLine("system", `Compilazione di ${activeFileName} con ${compiler}...`);
-        runProgram();
-        break;
-
-      case "clear":
-      case "cls":
-        setLines([]);
-        break;
-
-      case "compiler":
-      case "compilatore":
-        if (args.length > 0) {
-          const match = (COMPILERS_BY_LANG[langId] || []).find(
-            (c) => c.id.toLowerCase().includes(args[0].toLowerCase()) || c.short.toLowerCase().includes(args[0].toLowerCase())
-          );
-          if (match) {
-            handleCompilerChange(match.id);
-          } else {
-            appendLine("error", `Compilatore '${args[0]}' non trovato. Compilatori disponibili:`);
-            (COMPILERS_BY_LANG[langId] || []).forEach((c) => appendLine("output", `  • ${c.id} (${c.label})`));
-          }
-        } else {
-          appendLine("info", `Compilatore attuale: ${compiler}`);
-          appendLine("output", "Compilatori disponibili per " + langId.toUpperCase() + ":");
-          (COMPILERS_BY_LANG[langId] || []).forEach((c) =>
-            appendLine("output", `  ${c.id === compiler ? "▶" : " "} ${c.id.padEnd(16)} · ${c.label}`)
-          );
-        }
-        break;
-
-      case "std":
-        if (args.length > 0) {
-          const val = args[0].startsWith("-std=") ? args[0] : `-std=${args[0]}`;
-          handleStandardChange(val);
-        } else {
-          appendLine("info", `Standard attuale: ${standard}`);
-        }
-        break;
-
-      case "flags":
-        if (args.length > 0) {
-          const f = args.join(" ");
-          setExtraFlags(f);
-          setCompilerOptions(langId, `${standard}\n${f}`);
-          appendLine("info", `Flag impostati: ${f}`);
-        } else {
-          appendLine("info", `Flag attuali: ${extraFlags || "(nessuno)"}`);
-        }
-        break;
-
-      case "code":
-      case "cat":
-        appendLine("info", `─── ${activeFileName} (${activeCode.split("\n").length} righe) ───`);
-        activeCode.split("\n").forEach((line, idx) => {
-          appendLine("output", `${String(idx + 1).padStart(3, " ")} | ${line}`);
-        });
-        break;
-
-      case "files":
-      case "ls":
-      case "dir":
-        try {
-          const tabs = JSON.parse(localStorage.getItem(TABS_KEY)) || [];
-          appendLine("info", `File aperti in WorkingCode (${tabs.length}):`);
-          tabs.forEach((t) =>
-            appendLine(
-              "output",
-              `  ${t.name === activeFileName ? "▶" : " "} ${t.name.padEnd(20)} [${(t.langId || "c").toUpperCase()}] ${t.code ? t.code.length + " bytes" : ""}`
-            )
-          );
-        } catch {
-          appendLine("output", `  • ${activeFileName}`);
-        }
-        break;
-
-      case "edit":
-      case "editor":
-        if (onSwitchToEditor) onSwitchToEditor();
-        else setQuickCodeOpen(true);
-        break;
-
-      case "whoami":
-        try {
-          const u = JSON.parse(localStorage.getItem("wfy_user")) || {};
-          appendLine("output", `Utente: ${u.nome || "Ospite"} ${u.cognome || ""}`);
-          appendLine("output", `Email:  ${u.email || "locale@workfy.station"}`);
-          appendLine("output", `Piano:  Workfy PLUS (Attivo)`);
-        } catch {
-          appendLine("output", "Utente: Marky (Workfy PLUS)");
-        }
-        break;
-
-      case "sysinfo":
-        appendLine("info", "════════════ INFORMAZIONI SISTEMA ════════════");
-        appendLine("output", `Piattaforma:  App Desktop Tauri / Web SPA`);
-        appendLine("output", `Ambiente:     WorkfyStation v1.0.0`);
-        appendLine("output", `Linguaggio:   ${langId.toUpperCase()}`);
-        appendLine("output", `Compilatore:  ${compiler}`);
-        appendLine("output", `Standard:     ${standard}`);
-        appendLine("output", `Flag:         ${extraFlags}`);
-        appendLine("info", "═════════════════════════════════════════════");
-        break;
-
-      case "echo":
-        appendLine("output", args.join(" "));
-        break;
-
-      case "date":
-      case "time":
-        appendLine("output", new Date().toLocaleString("it-IT"));
-        break;
-
-      default:
-        appendLine("error", `Comando non riconosciuto: '${cmd}'. Digita 'help' per la lista dei comandi.`);
-        break;
-    }
-  };
-
+  // Gestione tasto Invio e Frecce
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      const val = cmdInput;
-      setCmdInput("");
+      const val = inputVal;
+      setInputVal("");
 
-      if (mode === "input") {
-        handleProgramInput(val);
-      } else if (mode === "cli") {
-        handleCliCommand(val);
-      }
-    } else if (mode === "cli") {
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        if (history.length === 0) return;
-        const nextIdx = histIndex === -1 ? history.length - 1 : Math.max(0, histIndex - 1);
-        setHistIndex(nextIdx);
-        setCmdInput(history[nextIdx] || "");
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        if (histIndex === -1) return;
-        const nextIdx = histIndex + 1;
-        if (nextIdx >= history.length) {
-          setHistIndex(-1);
-          setCmdInput("");
+      if (activeTabMode === "powershell") {
+        executePowerShellCommand(val);
+      } else if (activeTabMode === "compiler") {
+        if (cInputMode) {
+          handleCProgramInput(val);
         } else {
-          setHistIndex(nextIdx);
-          setCmdInput(history[nextIdx]);
+          // In modalità C se non c'è scanf, esegue comando run / help
+          if (val.trim() === "run" || val.trim() === "esegui") runCProgram();
+          else if (val.trim() === "cls" || val.trim() === "clear") setCLines([]);
+          else if (val.trim() === "help") {
+            appendC("info", "Comandi disponibili: run (esegui codice), cls (pulisci schermo), help");
+          } else {
+            runCProgram();
+          }
         }
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (history.length === 0) return;
+      const nextIdx = histIndex === -1 ? history.length - 1 : Math.max(0, histIndex - 1);
+      setHistIndex(nextIdx);
+      setInputVal(history[nextIdx] || "");
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (histIndex === -1) return;
+      const nextIdx = histIndex + 1;
+      if (nextIdx >= history.length) {
+        setHistIndex(-1);
+        setInputVal("");
+      } else {
+        setHistIndex(nextIdx);
+        setInputVal(history[nextIdx]);
       }
     }
   };
 
-  // Color generator for terminal lines
-  const getLineColor = (type) => {
-    switch (type) {
-      case "banner":
-        return "#ff2d55";
-      case "cmd":
-        return "#ffffff";
-      case "userinput":
-        return "#60a5fa";
-      case "output":
-        return "#e2e8f0";
-      case "system":
-        return "rgba(255,45,85,0.7)";
-      case "info":
-        return "#38bdf8";
-      case "warn":
-        return "#fbbf24";
-      case "error":
-        return "#ef4444";
-      case "status":
-        return "#34d399";
-      default:
-        return "#94a3b8";
+  // Funzione per aggiornare l'applicazione con 1 click
+  const handleUpdateApp = async () => {
+    setUpdateMsg("Avvio aggiornamento in corso...");
+    try {
+      const res = await triggerAppUpdateNative();
+      setUpdateMsg("✅ " + res);
+      setTimeout(() => setUpdateMsg(""), 6000);
+    } catch (err) {
+      setUpdateMsg("❌ " + (err.message || err));
+      setTimeout(() => setUpdateMsg(""), 6000);
     }
   };
 
@@ -520,415 +449,399 @@ export default function WorkingCodeTerminal({ onSwitchToEditor }) {
         background: BG,
         color: "#f8fafc",
         fontFamily: "'Segoe UI', sans-serif",
-        position: "relative",
       }}
     >
       <style>{`
-        .wc-term-btn:hover { background: rgba(255,45,85,0.2) !important; border-color: ${ACCENT} !important; }
-        .wc-term-btn:active { transform: scale(0.97); }
-        @keyframes wc-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .wc-tbtn:hover { background: rgba(255,45,85,0.2) !important; border-color: ${ACCENT} !important; }
+        .wc-tbtn:active { transform: scale(0.97); }
+        .ps-tag:hover { background: rgba(56,189,248,0.2) !important; border-color: #38bdf8 !important; }
       `}</style>
 
-      {/* ── TOP CONTROLS & COMPILER SELECTION BAR ── */}
+      {/* ── HEADER SUPERIORE: SELEZIONE POWERSHELL VS COMPILATORE C ── */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 10,
-          padding: "10px 16px",
+          padding: "8px 16px",
           background: BG2,
           borderBottom: `1px solid ${BORDER}`,
           flexWrap: "wrap",
-          zIndex: 10,
         }}
       >
-        {/* Terminal Title Badge */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 6 }}>
-          <div
+        {/* TABS PRINCIPALI: POWERSHELL REALE VS COMPILATORE C */}
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            onClick={() => setActiveTabMode("powershell")}
             style={{
-              width: 10,
-              height: 10,
-              borderRadius: "50%",
-              background: mode === "busy" ? "#fbbf24" : mode === "input" ? "#60a5fa" : "#34d399",
-              boxShadow: `0 0 10px ${mode === "busy" ? "#fbbf24" : mode === "input" ? "#60a5fa" : "#34d399"}`,
-            }}
-          />
-          <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#fff" }}>
-            TERMINALE
-          </span>
-          <span
-            style={{
-              fontSize: 10,
-              padding: "2px 7px",
-              borderRadius: 5,
-              background: "rgba(255,45,85,0.15)",
-              color: ACCENT,
-              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: `1.5px solid ${activeTabMode === "powershell" ? "#38bdf8" : BORDER}`,
+              background: activeTabMode === "powershell" ? "rgba(56,189,248,0.15)" : "transparent",
+              color: activeTabMode === "powershell" ? "#38bdf8" : "rgba(255,255,255,0.6)",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all .2s",
             }}
           >
-            C / C++ / Java
-          </span>
+            ⚡ PowerShell Windows (Reale)
+            {isDesktop ? (
+              <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 4, background: "#059669", color: "#fff" }}>
+                PC NATTVO
+              </span>
+            ) : (
+              <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 4, background: "rgba(255,255,255,0.1)", color: "#94a3b8" }}>
+                WEB
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTabMode("compiler")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: `1.5px solid ${activeTabMode === "compiler" ? ACCENT : BORDER}`,
+              background: activeTabMode === "compiler" ? "rgba(255,45,85,0.15)" : "transparent",
+              color: activeTabMode === "compiler" ? ACCENT : "rgba(255,255,255,0.6)",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all .2s",
+            }}
+          >
+            🔨 Compilatore C (Wandbox / GCC)
+          </button>
         </div>
 
         <div style={{ width: 1, height: 20, background: BORDER }} />
 
-        {/* Linguaggio */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Linguaggio:</span>
-          <select
-            value={langId}
-            onChange={(e) => {
-              const newLang = e.target.value;
-              setLangId(newLang);
-              const comp = getPreferredCompiler(newLang);
-              setCompiler(comp);
-              appendLine("info", `Linguaggio impostato su ${newLang.toUpperCase()} (${comp})`);
-            }}
-            style={{
-              padding: "4px 8px",
-              borderRadius: 6,
-              border: `1px solid ${BORDER}`,
-              background: BG3,
-              color: "#fff",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              outline: "none",
-            }}
-          >
-            <option value="c">C</option>
-            <option value="cpp">C++</option>
-            <option value="java">Java</option>
-          </select>
-        </div>
+        {/* CONTROLLI SPECIFICI PER MODALITÀ C */}
+        {activeTabMode === "compiler" && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Compilatore:</span>
+              <select
+                value={compiler}
+                onChange={(e) => {
+                  setCompiler(e.target.value);
+                  setPreferredCompiler(langId, e.target.value);
+                }}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  border: `1px solid ${ACCENT}77`,
+                  background: BG3,
+                  color: ACCENT,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  outline: "none",
+                }}
+              >
+                {(COMPILERS_BY_LANG[langId] || []).map((c) => (
+                  <option key={c.id} value={c.id} style={{ background: "#110006", color: "#fff" }}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        {/* COMPILATORE ATTIVO (Rispettato al 100%) */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Compilatore:</span>
-          <select
-            value={compiler}
-            onChange={(e) => handleCompilerChange(e.target.value)}
-            style={{
-              padding: "4px 10px",
-              borderRadius: 6,
-              border: `1px solid ${ACCENT}77`,
-              background: BG3,
-              color: ACCENT,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              outline: "none",
-            }}
-          >
-            {(COMPILERS_BY_LANG[langId] || []).map((c) => (
-              <option key={c.id} value={c.id} style={{ background: "#110006", color: "#fff" }}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Standard:</span>
+              <select
+                value={standard}
+                onChange={(e) => {
+                  setStandard(e.target.value);
+                  setCompilerOptions(langId, `${e.target.value}\n${extraFlags}`);
+                }}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  border: `1px solid ${BORDER}`,
+                  background: BG3,
+                  color: "#e2e8f0",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  outline: "none",
+                }}
+              >
+                {C_STANDARDS.map((s) => (
+                  <option key={s.id} value={s.id} style={{ background: "#110006", color: "#fff" }}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        {/* Standard C (solo se C) */}
-        {langId === "c" && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Standard:</span>
-            <select
-              value={standard}
-              onChange={(e) => handleStandardChange(e.target.value)}
+            <button
+              onClick={() => runCProgram()}
+              disabled={isBusy}
+              className="wc-tbtn"
               style={{
-                padding: "4px 8px",
-                borderRadius: 6,
-                border: `1px solid ${BORDER}`,
-                background: BG3,
-                color: "#e2e8f0",
-                fontSize: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 12px",
+                borderRadius: 7,
+                border: "none",
+                background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`,
+                color: "#fff",
+                fontSize: 11,
+                fontWeight: 700,
                 cursor: "pointer",
-                outline: "none",
               }}
             >
-              {C_STANDARDS.map((s) => (
-                <option key={s.id} value={s.id} style={{ background: "#110006", color: "#fff" }}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              ▶ Esegui C
+            </button>
+          </>
         )}
 
-        {/* Warning Flags */}
-        {langId === "c" && (
-          <div style={{ display: "flex", gap: 4 }}>
-            {WARNING_FLAGS.map((f) => {
-              const active = extraFlags.includes(f.id);
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => toggleFlag(f.id)}
-                  title={f.label}
-                  className="wc-term-btn"
-                  style={{
-                    padding: "3px 8px",
-                    borderRadius: 5,
-                    border: `1px solid ${active ? ACCENT : BORDER}`,
-                    background: active ? "rgba(255,45,85,0.2)" : "transparent",
-                    color: active ? ACCENT : "rgba(255,255,255,0.4)",
-                    fontSize: 11,
-                    cursor: "pointer",
-                    transition: "all .15s",
-                  }}
-                >
-                  {f.id}
-                </button>
-              );
-            })}
+        {/* COMANDI RAPIDI PER POWERSHELL */}
+        {activeTabMode === "powershell" && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {[
+              { label: "📁 dir", cmd: "dir" },
+              { label: "🔧 gcc --version", cmd: "gcc --version" },
+              { label: "🐍 python --version", cmd: "python --version" },
+              { label: "👤 whoami", cmd: "whoami" },
+              { label: "🗑 cls", cmd: "cls" },
+            ].map((b, i) => (
+              <button
+                key={i}
+                onClick={() => executePowerShellCommand(b.cmd)}
+                className="ps-tag"
+                style={{
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  border: `1px solid ${BORDER}`,
+                  background: "rgba(255,255,255,0.04)",
+                  color: "#e2e8f0",
+                  fontSize: 11,
+                  cursor: "pointer",
+                }}
+              >
+                {b.label}
+              </button>
+            ))}
           </div>
         )}
 
         <div style={{ flex: 1 }} />
 
-        {/* Bottoni Azione */}
+        {/* PULSANTE AGGIORNAMENTO APPLICAZIONE */}
         <button
-          onClick={() => runProgram()}
-          disabled={mode === "busy"}
-          className="wc-term-btn"
+          onClick={handleUpdateApp}
+          title="Controlla e installa l'aggiornamento più recente"
           style={{
             display: "flex",
             alignItems: "center",
             gap: 6,
-            padding: "5px 14px",
+            padding: "5px 12px",
             borderRadius: 7,
-            border: "none",
-            background: mode === "busy" ? "#330009" : `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`,
-            color: "#fff",
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: mode === "busy" ? "not-allowed" : "pointer",
-            boxShadow: mode === "busy" ? "none" : `0 0 12px ${ACCENT}55`,
-          }}
-        >
-          {mode === "busy" ? "⏳ Esecuzione..." : `▶ Esegui ${activeFileName}`}
-        </button>
-
-        <button
-          onClick={() => setQuickCodeOpen((v) => !v)}
-          className="wc-term-btn"
-          style={{
-            padding: "5px 10px",
-            borderRadius: 6,
-            border: `1px solid ${BORDER}`,
-            background: quickCodeOpen ? "rgba(255,45,85,0.2)" : BG3,
-            color: "#fff",
-            fontSize: 12,
+            border: "1px solid rgba(52,211,153,0.3)",
+            background: "rgba(52,211,153,0.1)",
+            color: "#34d399",
+            fontSize: 11,
+            fontWeight: 600,
             cursor: "pointer",
           }}
-          title="Mostra / modifica codice sorgente"
         >
-          📝 Codice
+          🔄 Aggiorna App
         </button>
 
-        <button
-          onClick={() => setLines([])}
-          className="wc-term-btn"
-          style={{
-            padding: "5px 10px",
-            borderRadius: 6,
-            border: `1px solid ${BORDER}`,
-            background: BG3,
-            color: "rgba(255,255,255,0.6)",
-            fontSize: 12,
-            cursor: "pointer",
-          }}
-          title="Pulisci schermo terminale"
-        >
-          🗑 Pulisci
-        </button>
+        {updateMsg && (
+          <span style={{ fontSize: 11, color: "#34d399", fontWeight: 600 }}>{updateMsg}</span>
+        )}
       </div>
 
-      {/* ── SPLIT VIEW: SE QUICK CODE OPEN ── */}
-      {quickCodeOpen && (
+      {/* ── SEGNALAZIONE SE SU BROWSER WEB ── */}
+      {activeTabMode === "powershell" && !isDesktop && (
         <div
           style={{
             padding: "10px 16px",
-            background: BG2,
-            borderBottom: `1px solid ${BORDER}`,
+            background: "rgba(245,158,11,0.12)",
+            borderBottom: "1px solid rgba(245,158,11,0.3)",
             display: "flex",
-            flexDirection: "column",
-            gap: 8,
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontSize: 12,
+            color: "#fbbf24",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>
-              Sorgente C attivo: {activeFileName}
-            </span>
-            <div style={{ display: "flex", gap: 8 }}>
-              {onSwitchToEditor && (
-                <button
-                  onClick={onSwitchToEditor}
-                  style={{
-                    padding: "3px 10px",
-                    borderRadius: 5,
-                    border: `1px solid ${BORDER}`,
-                    background: "transparent",
-                    color: "#38bdf8",
-                    fontSize: 11,
-                    cursor: "pointer",
-                  }}
-                >
-                  Apri nell'Editor Completo ↗
-                </button>
-              )}
-              <button
-                onClick={() => setQuickCodeOpen(false)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "rgba(255,255,255,0.4)",
-                  cursor: "pointer",
-                  fontSize: 14,
-                }}
-              >
-                ✕
-              </button>
-            </div>
+          <div>
+            <strong>⚠️ Sei sul browser web:</strong> I comandi di sistema PowerShell reali sono abilitati nell'applicazione installata su Windows per motivi di sicurezza.
           </div>
-          <textarea
-            value={activeCode}
-            onChange={(e) => setActiveCode(e.target.value)}
-            spellCheck={false}
+          <a
+            href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
+            download="WorkfyStation-Setup.exe"
             style={{
-              width: "100%",
-              height: 140,
-              background: "#040001",
-              border: `1px solid ${BORDER}`,
+              padding: "4px 10px",
               borderRadius: 6,
-              color: "#f8fafc",
-              fontFamily: "'Consolas','Courier New',monospace",
-              fontSize: 13,
-              lineHeight: 1.5,
-              padding: "8px 12px",
-              resize: "vertical",
-              outline: "none",
-              caretColor: ACCENT,
+              background: "#fbbf24",
+              color: "#000",
+              fontWeight: 700,
+              textDecoration: "none",
+              fontSize: 11,
             }}
-          />
+          >
+            Scarica App per PC (.exe)
+          </a>
         </div>
       )}
 
-      {/* ── TERMINAL DISPLAY AREA ── */}
+      {/* ── SCHERMATA DEL TERMINALE (Output) ── */}
       <div
         ref={termRef}
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "16px 20px",
+          padding: "14px 18px",
           fontFamily: "'Consolas', 'Cascadia Code', 'Fira Code', 'Courier New', monospace",
-          fontSize: 13.5,
-          lineHeight: 1.65,
+          fontSize: 13,
+          lineHeight: 1.6,
           background: BG,
         }}
       >
-        {lines.map((l, i) => (
-          <div
-            key={i}
-            style={{
-              color: getLineColor(l.type),
-              minHeight: l.type === "blank" ? 8 : "auto",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            {l.type === "userinput" ? (
-              <>
-                <span style={{ color: "#34d399", fontWeight: 700 }}>&gt; </span>
-                <span style={{ color: "#60a5fa", fontWeight: 600 }}>{l.text}</span>
-              </>
-            ) : (
-              l.text
-            )}
-          </div>
-        ))}
+        {activeTabMode === "powershell" ? (
+          // Output PowerShell
+          psLines.map((l, i) => (
+            <div
+              key={i}
+              style={{
+                color:
+                  l.type === "prompt"
+                    ? "#ffffff"
+                    : l.type === "error"
+                    ? "#ef4444"
+                    : l.type === "warn"
+                    ? "#fbbf24"
+                    : l.type === "info"
+                    ? "#38bdf8"
+                    : l.type === "sys"
+                    ? "rgba(255,255,255,0.7)"
+                    : "#cbd5e1",
+                minHeight: l.type === "blank" ? 8 : "auto",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {l.type === "prompt" ? (
+                <span style={{ color: "#38bdf8", fontWeight: 700 }}>{l.text}</span>
+              ) : (
+                l.text
+              )}
+            </div>
+          ))
+        ) : (
+          // Output Compilatore C
+          cLines.map((l, i) => (
+            <div
+              key={i}
+              style={{
+                color:
+                  l.type === "banner"
+                    ? ACCENT
+                    : l.type === "cmd"
+                    ? "#ffffff"
+                    : l.type === "userinput"
+                    ? "#60a5fa"
+                    : l.type === "error"
+                    ? "#ef4444"
+                    : l.type === "warn"
+                    ? "#fbbf24"
+                    : l.type === "status"
+                    ? "#34d399"
+                    : l.type === "sys"
+                    ? "rgba(255,45,85,0.7)"
+                    : "#e2e8f0",
+                minHeight: l.type === "blank" ? 8 : "auto",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {l.type === "userinput" ? (
+                <>
+                  <span style={{ color: "#34d399", fontWeight: 700 }}>&gt; </span>
+                  <span style={{ color: "#60a5fa", fontWeight: 600 }}>{l.text}</span>
+                </>
+              ) : (
+                l.text
+              )}
+            </div>
+          ))
+        )}
 
-        {mode === "busy" && (
-          <div style={{ color: "#fbbf24", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ animation: "wc-pulse 1s infinite" }}>● Compilazione ed esecuzione in corso...</span>
+        {isBusy && (
+          <div style={{ color: "#fbbf24", marginTop: 4 }}>
+            <span style={{ animation: "wc-blink 1s infinite" }}>● Esecuzione in corso...</span>
           </div>
         )}
       </div>
 
-      {/* ── INTERACTIVE INPUT BAR ── */}
+      {/* ── RIGA DI INPUT (Command Line) ── */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 8,
           padding: "10px 16px",
-          borderTop: `1px solid ${mode === "input" ? "#60a5fa" : BORDER}`,
-          background: mode === "input" ? "rgba(10,25,50,0.85)" : BG2,
-          transition: "all .2s ease",
+          borderTop: `1px solid ${cInputMode ? "#60a5fa" : BORDER}`,
+          background: cInputMode ? "rgba(10,25,50,0.85)" : BG2,
         }}
       >
         <span
           style={{
-            color: mode === "input" ? "#60a5fa" : ACCENT,
+            color: activeTabMode === "powershell" ? "#38bdf8" : cInputMode ? "#60a5fa" : ACCENT,
             fontFamily: "'Consolas', monospace",
             fontWeight: 800,
-            fontSize: 14,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
+            fontSize: 13,
+            whiteSpace: "nowrap",
           }}
         >
-          {mode === "input" ? (
-            <>
-              <span style={{ animation: "wc-pulse 1s infinite" }}>▶</span> INPUT:
-            </>
+          {activeTabMode === "powershell" ? (
+            `PS ${currentCwd}>`
+          ) : cInputMode ? (
+            "SCANF INPUT ▶"
           ) : (
-            "$"
+            "C:>"
           )}
         </span>
 
         <input
           ref={inputRef}
-          value={cmdInput}
-          onChange={(e) => setCmdInput(e.target.value)}
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={mode === "busy"}
+          disabled={isBusy}
           placeholder={
-            mode === "input"
-              ? "Il programma richiede un input (es. per scanf): digita e premi Invio..."
-              : mode === "busy"
-              ? "Attendere..."
-              : "Scrivi un comando (es. run, help, gcc, code, compiler) e premi Invio..."
+            activeTabMode === "powershell"
+              ? "Scrivi un comando PowerShell (es. dir, ipconfig, gcc main.c) e premi Invio..."
+              : cInputMode
+              ? "Inserisci il valore richiesto da scanf e premi Invio..."
+              : "Digita 'run' per eseguire o scrivi un comando..."
           }
           style={{
             flex: 1,
             background: "transparent",
             border: "none",
             outline: "none",
-            color: mode === "input" ? "#60a5fa" : "#f8fafc",
+            color: cInputMode ? "#60a5fa" : "#f8fafc",
             fontFamily: "'Consolas', monospace",
-            fontSize: 14,
-            caretColor: mode === "input" ? "#60a5fa" : ACCENT,
+            fontSize: 13,
+            caretColor: activeTabMode === "powershell" ? "#38bdf8" : ACCENT,
           }}
         />
 
-        {mode === "input" && (
-          <span
-            style={{
-              fontSize: 11,
-              color: "#60a5fa",
-              padding: "2px 8px",
-              borderRadius: 4,
-              background: "rgba(96,165,250,0.15)",
-              fontWeight: 600,
-            }}
-          >
-            SCANF ATTIVA
-          </span>
-        )}
-
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>
-          {mode === "input" ? "Premi Invio per inviare" : "Invio = Esegui · ↑/↓ = Cronologia"}
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+          Invio = Esegui · ↑/↓ = Cronologia
         </span>
       </div>
     </div>
