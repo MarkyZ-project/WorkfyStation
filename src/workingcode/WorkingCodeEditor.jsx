@@ -10,29 +10,31 @@ import QuickOpen from "./QuickOpen";
 import {
   COMPILERS_BY_LANG,
   C_STANDARDS,
+  CPP_STANDARDS,
   WARNING_FLAGS,
   getPreferredCompiler,
   setPreferredCompiler,
   getCompilerOptions,
   setCompilerOptions,
-  codeNeedsInput,
-  makeInteractive,
-  wandboxRun,
-  findPromptIndices,
+  hasLocalToolchain,
 } from "./wcCompiler";
 import {
   isDesktopApp,
   toolchainInfo,
+  wsOpen,
   wsRead,
   wsWrite,
   runStart,
   runStdin,
+  runCloseStdin,
   runKill,
   onRunEvent,
   newId,
 } from "./tauriBridge";
 import { LANGUAGES, SNIPPETS } from "./snippets";
 import { parseDiagnostics } from "./diagnostics";
+import { cloudRun } from "./cloudRunner";
+import { javaMainClass } from "./interactive";
 
 const ACCENT = "#ff2d55";
 const ACCENT2 = "#ff0020";
@@ -43,11 +45,14 @@ const BORDER = "rgba(255,45,85,0.18)";
 
 const TABS_KEY = "wc_editor_tabs_v2";
 const ACTIVE_KEY = "wc_editor_active_v2";
+const RUN_MODE_KEY = "wc_run_mode_v2";
+
+const DEFAULT_TEMPLATES = new Set(LANGUAGES.map((l) => l.template.trim()));
 
 function newDefaultTab(lang) {
   return {
     id: "tab_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-    name: `main.${lang.ext}`,
+    name: lang.id === "java" ? "Main.java" : `main.${lang.ext}`,
     relPath: null,
     langId: lang.id,
     code: lang.template,
@@ -56,11 +61,69 @@ function newDefaultTab(lang) {
   };
 }
 
+// Pulisce codici ANSI da testo di console
+const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]/g;
+function stripAnsi(s) {
+  return (s || "").replace(ANSI_RE, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
+/** Accoda testo in streaming alle righe di output mantenendo aperta l'ultima riga se non termina con \n. */
+function appendStreamChunk(prev, type, rawChunk) {
+  const chunk = stripAnsi(rawChunk);
+  if (!chunk) return prev;
+  const parts = chunk.split("\n");
+  const endsWithNl = chunk.endsWith("\n");
+  const items = endsWithNl ? parts.slice(0, -1) : parts;
+  if (items.length === 0) return prev;
+
+  const next = [...prev];
+  const lastIdx = next.length - 1;
+
+  if (
+    lastIdx >= 0 &&
+    next[lastIdx].open &&
+    next[lastIdx].type === type &&
+    next[lastIdx].suffixInput === undefined
+  ) {
+    const mergedOpen = items.length === 1 && !endsWithNl;
+    next[lastIdx] = {
+      ...next[lastIdx],
+      text: next[lastIdx].text + items[0],
+      open: mergedOpen,
+    };
+    for (let i = 1; i < items.length; i++) {
+      const isLast = i === items.length - 1;
+      next.push({ type, text: items[i], open: isLast && !endsWithNl });
+    }
+    return next;
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    const isLast = i === items.length - 1;
+    next.push({ type, text: items[i], open: isLast && !endsWithNl });
+  }
+  return next;
+}
+
+/** Registra l'input dell'utente sulla riga di prompt aperta (se presente) o come nuova riga. */
+function appendUserEcho(prev, val) {
+  const next = [...prev];
+  const lastIdx = next.length - 1;
+  if (lastIdx >= 0 && next[lastIdx].open && next[lastIdx].suffixInput === undefined) {
+    next[lastIdx] = { ...next[lastIdx], suffixInput: val, open: false };
+    return next;
+  }
+  next.push({ type: "input", text: val, open: false });
+  return next;
+}
+
 // ── Find & Replace Bar ──
 function FindBar({ code, onChange, onClose }) {
   const [find, setFind] = useState("");
   const [replace, setReplace] = useState("");
-  const m = find ? (code.match(new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length : 0;
+  const m = find
+    ? (code.match(new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length
+    : 0;
   return (
     <div
       style={{
@@ -77,6 +140,7 @@ function FindBar({ code, onChange, onClose }) {
     >
       <span style={{ color: ACCENT, fontWeight: 700 }}>🔍</span>
       <input
+        autoFocus
         value={find}
         onChange={(e) => setFind(e.target.value)}
         placeholder="Cerca..."
@@ -88,12 +152,12 @@ function FindBar({ code, onChange, onClose }) {
           color: "#fff",
           fontSize: 12,
           outline: "none",
-          width: 140,
+          width: 150,
         }}
       />
       {find && (
         <span style={{ fontSize: 11, color: m > 0 ? ACCENT : "rgba(255,255,255,0.4)" }}>
-          {m} trovati
+          {m} risultati
         </span>
       )}
       <input
@@ -108,7 +172,7 @@ function FindBar({ code, onChange, onClose }) {
           color: "#fff",
           fontSize: 12,
           outline: "none",
-          width: 140,
+          width: 150,
         }}
       />
       <button
@@ -154,6 +218,89 @@ function FindBar({ code, onChange, onClose }) {
   );
 }
 
+// ── Go To Line Modal (Ctrl+G) ──
+function GotoLineModal({ isOpen, maxLine, onClose, onGoto }) {
+  const [val, setVal] = useState("1");
+  useEffect(() => {
+    if (isOpen) setVal("1");
+  }, [isOpen]);
+  if (!isOpen) return null;
+  const submit = () => {
+    const n = parseInt(val, 10);
+    if (!Number.isNaN(n) && n >= 1) onGoto(n);
+    onClose();
+  };
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1100,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        paddingTop: "14vh",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 340,
+          background: "#0d0005",
+          border: `1px solid ${BORDER}`,
+          borderRadius: 10,
+          padding: 16,
+          color: "#fff",
+        }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 700, color: ACCENT, marginBottom: 8 }}>
+          Vai alla riga (1 – {maxLine})
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            autoFocus
+            type="number"
+            min={1}
+            max={maxLine}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+              if (e.key === "Escape") onClose();
+            }}
+            style={{
+              flex: 1,
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: `1px solid ${BORDER}`,
+              background: "#160007",
+              color: "#fff",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+          <button
+            onClick={submit}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 6,
+              border: "none",
+              background: ACCENT,
+              color: "#fff",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Vai
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Compiler Options Modal ──
 function CompilerOptionsModal({ isOpen, onClose, langId, currentOptions, onSaveOptions }) {
   const [opts, setOpts] = useState(currentOptions);
@@ -162,6 +309,7 @@ function CompilerOptionsModal({ isOpen, onClose, langId, currentOptions, onSaveO
   }, [currentOptions, isOpen]);
 
   if (!isOpen) return null;
+  const standards = langId === "c" ? C_STANDARDS : langId === "cpp" ? CPP_STANDARDS : [];
 
   return (
     <div
@@ -187,27 +335,35 @@ function CompilerOptionsModal({ isOpen, onClose, langId, currentOptions, onSaveO
           borderRadius: 12,
           padding: 20,
           color: "#fff",
-          boxShadow: `0 16px 48px rgba(0,0,0,0.8)`,
+          boxShadow: "0 16px 48px rgba(0,0,0,0.8)",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: ACCENT }}>
             ⚙️ Opzioni Compilatore ({langId.toUpperCase()})
           </div>
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 18 }}>
+          <button
+            onClick={onClose}
+            style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 18 }}
+          >
             ×
           </button>
         </div>
 
-        {langId === "c" && (
+        {standards.length > 0 && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>Standard C:</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>
+              Standard del linguaggio:
+            </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {C_STANDARDS.map((s) => (
+              {standards.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => {
-                    const withoutStd = opts.split("\n").filter((l) => !l.startsWith("-std=")).join("\n");
+                    const withoutStd = opts
+                      .split("\n")
+                      .filter((l) => !l.trim().startsWith("-std="))
+                      .join("\n");
                     setOpts(withoutStd ? withoutStd + "\n" + s.id : s.id);
                   }}
                   style={{
@@ -228,16 +384,23 @@ function CompilerOptionsModal({ isOpen, onClose, langId, currentOptions, onSaveO
         )}
 
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>Flag di Warning:</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>
+            Flag di Warning & Ottimizzazione:
+          </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {WARNING_FLAGS.map((w) => {
-              const active = opts.includes(w.id);
+              const active = opts.split(/\s+/).includes(w.id);
               return (
                 <button
                   key={w.id}
                   onClick={() => {
                     if (active) {
-                      setOpts(opts.split("\n").filter((l) => l.trim() !== w.id).join("\n"));
+                      setOpts(
+                        opts
+                          .split("\n")
+                          .filter((l) => l.trim() !== w.id)
+                          .join("\n")
+                      );
                     } else {
                       setOpts(opts ? opts + "\n" + w.id : w.id);
                     }
@@ -261,7 +424,7 @@ function CompilerOptionsModal({ isOpen, onClose, langId, currentOptions, onSaveO
 
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>
-            Flag personalizzati (uno per riga, es. -O2, -lm):
+            Flag attivi (uno per riga, es. -O2, -lm):
           </div>
           <textarea
             value={opts}
@@ -283,7 +446,17 @@ function CompilerOptionsModal({ isOpen, onClose, langId, currentOptions, onSaveO
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button onClick={onClose} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${BORDER}`, background: "transparent", color: "rgba(255,255,255,0.6)", cursor: "pointer" }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: `1px solid ${BORDER}`,
+              background: "transparent",
+              color: "rgba(255,255,255,0.6)",
+              cursor: "pointer",
+            }}
+          >
             Annulla
           </button>
           <button
@@ -310,7 +483,7 @@ function CompilerOptionsModal({ isOpen, onClose, langId, currentOptions, onSaveO
 }
 
 // ══════════════════════════════════════════════════════
-export default function WorkingCodeEditor() {
+export default function WorkingCodeEditor({ externalSection, pendingLesson, onLessonConsumed }) {
   const isDesktop = isDesktopApp();
 
   // Tabs state
@@ -330,26 +503,38 @@ export default function WorkingCodeEditor() {
     }
   });
 
-  // Ensure active tab is valid
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
   const activeLang = LANGUAGES.find((l) => l.id === activeTab?.langId) || LANGUAGES[0];
 
-  // Toolchain probe
+  // Probe local toolchain on desktop (non-blocking; Cloud is always ready without installing anything)
   const [toolchain, setToolchain] = useState(null);
   useEffect(() => {
     if (isDesktop) {
       toolchainInfo()
-        .then((info) => setToolchain(info))
-        .catch(() => {});
+        .then((info) => setToolchain(info || []))
+        .catch(() => setToolchain([]));
     }
   }, [isDesktop]);
 
   // Compiler selection & options
   const [selectedCompiler, setSelectedCompiler] = useState(() => getPreferredCompiler(activeLang.id));
   const [compilerOptions, setLocalCompilerOptions] = useState(() => getCompilerOptions(activeLang.id));
-  const [runLocation, setRunLocation] = useState(() => {
-    return isDesktop ? "local" : "cloud";
+
+  // Run mode: "auto" (predefinito: Zero-Install Cloud, oppure Locale se installato), "cloud", "local"
+  const [runMode, setRunMode] = useState(() => {
+    try {
+      return localStorage.getItem(RUN_MODE_KEY) || "auto";
+    } catch {
+      return "auto";
+    }
   });
+
+  const changeRunMode = (next) => {
+    setRunMode(next);
+    try {
+      localStorage.setItem(RUN_MODE_KEY, next);
+    } catch {}
+  };
 
   useEffect(() => {
     setSelectedCompiler(getPreferredCompiler(activeLang.id));
@@ -368,17 +553,49 @@ export default function WorkingCodeEditor() {
   const [sidebarView, setSidebarView] = useState("explorer"); // "explorer" | "search" | "snippets" | null
   const [panelOpen, setPanelOpen] = useState(true);
   const [panelTab, setPanelTab] = useState("output"); // "output" | "terminal" | "problems"
-  const [panelHeight, setPanelHeight] = useState(240);
+  const [panelHeight, setPanelHeight] = useState(250);
   const [draggingPanel, setDraggingPanel] = useState(false);
   const [fontSize, setFontSize] = useState(14);
   const [showFind, setShowFind] = useState(false);
+  const [showGoto, setShowGoto] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showQuickOpen, setShowQuickOpen] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [statusNotification, setStatusNotification] = useState("");
+  const [workspaceInfo, setWorkspaceInfo] = useState(null);
 
   const editorRef = useRef(null);
+
+  // Sync with external section clicks from WorkingCodeApp sidebar
+  useEffect(() => {
+    if (externalSection === "terminal") {
+      setPanelOpen(true);
+      setPanelTab("terminal");
+    } else if (externalSection === "projects") {
+      setSidebarView("explorer");
+    } else if (externalSection === "snippets") {
+      setSidebarView("snippets");
+    }
+  }, [externalSection]);
+
+  // Load lesson code if user clicked "Apri nell'Editor" from Lezioni
+  useEffect(() => {
+    if (!pendingLesson) return;
+    const lang = LANGUAGES.find((l) => l.id === pendingLesson.langId) || LANGUAGES[0];
+    const t = {
+      id: "tab_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+      name: pendingLesson.filename || (lang.id === "java" ? "Main.java" : `esempio.${lang.ext}`),
+      relPath: null,
+      langId: lang.id,
+      code: pendingLesson.code,
+      saved: true,
+      eol: "lf",
+    };
+    setTabs((prev) => [...prev, t]);
+    setActiveTabId(t.id);
+    onLessonConsumed?.();
+  }, [pendingLesson, onLessonConsumed]);
 
   // Execution & Diagnostics state
   const [running, setRunning] = useState(false);
@@ -386,13 +603,18 @@ export default function WorkingCodeEditor() {
   const [isWaitingInput, setIsWaitingInput] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [diagnostics, setDiagnostics] = useState([]);
-  const activeRunIdRef = useRef(null);
 
-  // Re-size panel drag listener
+  const activeRunIdRef = useRef(null);
+  const localCompileBufRef = useRef("");
+  const localRunSpecRef = useRef(null);
+  const localStartTimeRef = useRef(0);
+  const cloudSessionRef = useRef(null);
+
+  // Resize bottom panel
   useEffect(() => {
     if (!draggingPanel) return;
     const onMove = (e) => {
-      const h = Math.max(120, Math.min(window.innerHeight - e.clientY, 600));
+      const h = Math.max(120, Math.min(window.innerHeight - e.clientY, 620));
       setPanelHeight(h);
     };
     const onUp = () => setDraggingPanel(false);
@@ -404,6 +626,120 @@ export default function WorkingCodeEditor() {
     };
   }, [draggingPanel]);
 
+  // ── Cloud interactive runner (nessuna installazione richiesta) ──
+  const executeCloudStep = useCallback(async (session, eof = false) => {
+    try {
+      const res = await cloudRun({
+        compiler: session.compiler,
+        code: session.code,
+        langId: session.langId,
+        options: session.options,
+        inputs: session.inputs,
+        eof,
+      });
+
+      if (cloudSessionRef.current?.id !== session.id) return;
+
+      // Diagnostica compilatore + runtime (Python traceback, ecc.)
+      const diagSource = [res.compilerText, res.stderr].filter(Boolean).join("\n");
+      const diags = parseDiagnostics(diagSource, res.lineOffset || 0);
+      setDiagnostics(diags);
+
+      if (res.compileFailed) {
+        setOutputLines((prev) =>
+          appendStreamChunk(prev, "error", (res.compilerText || "Errore di compilazione").trimEnd() + "\n")
+        );
+        setRunning(false);
+        setIsWaitingInput(false);
+        setStatusMsg("Errore di compilazione");
+        cloudSessionRef.current = null;
+        return;
+      }
+
+      if (session.inputs.length === 0 && res.compilerText && res.compilerText.trim()) {
+        setOutputLines((prev) =>
+          appendStreamChunk(prev, "warn", res.compilerText.trimEnd() + "\n")
+        );
+      }
+
+      // Mostra SOLO la parte nuova dell'output rispetto al passo precedente
+      const fullOut = res.output || "";
+      const delta = fullOut.slice(session.shownOutLen);
+      session.shownOutLen = fullOut.length;
+
+      if (delta) {
+        setOutputLines((prev) => appendStreamChunk(prev, "stdout", delta));
+      }
+
+      if (res.needsInput) {
+        setRunning(true);
+        setIsWaitingInput(true);
+        setStatusMsg("In attesa di input...");
+        return;
+      }
+
+      if (res.stderr && res.stderr.trim()) {
+        setOutputLines((prev) =>
+          appendStreamChunk(prev, "error", res.stderr.trimEnd() + "\n")
+        );
+      }
+
+      const elapsed = ((Date.now() - session.t0) / 1000).toFixed(2);
+      const ok = String(res.status || "0") === "0";
+      setRunning(false);
+      setIsWaitingInput(false);
+      setStatusMsg(`Completato · Codice ${res.status || 0} (${elapsed}s)`);
+      setOutputLines((prev) => [
+        ...prev.map((l) => (l.open ? { ...l, open: false } : l)),
+        {
+          type: "status",
+          text: `─── ${ok ? "✅" : "❌"} Codice ${res.status || "0"} · ${elapsed}s ───`,
+          open: false,
+        },
+      ]);
+      cloudSessionRef.current = null;
+    } catch (e) {
+      if (cloudSessionRef.current?.id !== session.id) return;
+      setOutputLines((prev) => [
+        ...prev,
+        { type: "error", text: "❌ Errore di connessione al compilatore: " + (e.message || e), open: false },
+      ]);
+      setRunning(false);
+      setIsWaitingInput(false);
+      setStatusMsg("Errore di rete");
+      cloudSessionRef.current = null;
+    }
+  }, []);
+
+  const startCloudExecution = useCallback(
+    (compiler, code, langId, options, headerNote = "") => {
+      const session = {
+        id: newId(),
+        compiler,
+        code,
+        langId,
+        options,
+        inputs: [],
+        shownOutLen: 0,
+        t0: Date.now(),
+      };
+      cloudSessionRef.current = session;
+      activeRunIdRef.current = null;
+      setRunning(true);
+      setIsWaitingInput(false);
+      setStatusMsg("Compilazione ed esecuzione...");
+      setOutputLines([
+        {
+          type: "system",
+          text: `─── WorkingCode [${langId.toUpperCase()} · ${compiler}]${headerNote} ───`,
+          open: false,
+        },
+      ]);
+      executeCloudStep(session, false);
+    },
+    [executeCloudStep]
+  );
+
   // Listen to native run events on desktop
   useEffect(() => {
     if (!isDesktop) return;
@@ -411,26 +747,47 @@ export default function WorkingCodeEditor() {
     onRunEvent((ev) => {
       if (ev.id !== activeRunIdRef.current) return;
       if (ev.kind === "compile") {
-        setOutputLines((prev) => [...prev, { type: "system", text: ev.data }]);
+        localCompileBufRef.current += ev.data;
+        setDiagnostics(parseDiagnostics(localCompileBufRef.current, 0));
+        setOutputLines((prev) => appendStreamChunk(prev, "warn", ev.data));
+      } else if (ev.kind === "start") {
+        setStatusMsg("In esecuzione (Locale)...");
       } else if (ev.kind === "stdout") {
-        setOutputLines((prev) => [...prev, { type: "stdout", text: ev.data }]);
-        // If output line ends with : or ? it may be a prompt
-        if (ev.data.trimEnd().endsWith(":") || ev.data.trimEnd().endsWith("?")) {
-          setIsWaitingInput(true);
-        }
+        setOutputLines((prev) => appendStreamChunk(prev, "stdout", ev.data));
+        setIsWaitingInput(true);
       } else if (ev.kind === "stderr") {
-        setOutputLines((prev) => [...prev, { type: "warn", text: ev.data }]);
+        localCompileBufRef.current += "\n" + ev.data;
+        setDiagnostics(parseDiagnostics(localCompileBufRef.current, 0));
+        setOutputLines((prev) => appendStreamChunk(prev, "warn", ev.data));
       } else if (ev.kind === "error") {
-        setOutputLines((prev) => [...prev, { type: "error", text: ev.data }]);
+        setOutputLines((prev) => appendStreamChunk(prev, "error", ev.data + "\n"));
       } else if (ev.kind === "exit") {
+        // Se il compilatore locale non è installato sul PC, passa subito e in automatico al compilatore Cloud integrato!
+        if (ev.data === "not-found" && localRunSpecRef.current) {
+          const s = localRunSpecRef.current;
+          localRunSpecRef.current = null;
+          activeRunIdRef.current = null;
+          startCloudExecution(s.compiler, s.code, s.langId, s.options);
+          return;
+        }
+        activeRunIdRef.current = null;
         setRunning(false);
         setIsWaitingInput(false);
-        const code = ev.code !== undefined ? ev.code : 0;
-        const note = ev.data ? ` (${ev.data})` : "";
-        setStatusMsg(`Terminato con codice ${code}${note}`);
+        const code = ev.code !== undefined && ev.code !== null ? ev.code : 0;
+        const elapsed = ((Date.now() - (localStartTimeRef.current || Date.now())) / 1000).toFixed(2);
+        const ok = code === 0 && ev.data !== "compile-error";
+        setStatusMsg(
+          ev.data === "compile-error"
+            ? "Errore di compilazione"
+            : `Completato · Codice ${code} (${elapsed}s)`
+        );
         setOutputLines((prev) => [
-          ...prev,
-          { type: "status", text: `─── Esecuzione completata · Codice ${code}${note} ───` },
+          ...prev.map((l) => (l.open ? { ...l, open: false } : l)),
+          {
+            type: "status",
+            text: `─── ${ok ? "✅" : "❌"} Codice ${code} · ${elapsed}s ───`,
+            open: false,
+          },
         ]);
       }
     }).then((un) => {
@@ -440,13 +797,18 @@ export default function WorkingCodeEditor() {
     return () => {
       unlisten?.();
     };
-  }, [isDesktop]);
+  }, [isDesktop, startCloudExecution]);
 
   // ── Tab Management ──
   const updateActiveCode = (newCode) => {
     setTabs((ts) =>
       ts.map((t) => (t.id === activeTab.id ? { ...t, code: newCode, saved: false } : t))
     );
+  };
+
+  const notify = (msg) => {
+    setStatusNotification(msg);
+    setTimeout(() => setStatusNotification(""), 2200);
   };
 
   const saveActiveTab = async () => {
@@ -457,25 +819,43 @@ export default function WorkingCodeEditor() {
         setTabs((ts) =>
           ts.map((t) => (t.id === activeTab.id ? { ...t, saved: true } : t))
         );
-        notify("💾 File salvato su disco");
+        notify("💾 Salvato su disco");
       } catch (e) {
-        alert("Errore salvataggio: " + (e.message || e));
+        notify("❌ " + (e.message || e));
       }
     } else {
       setTabs((ts) =>
         ts.map((t) => (t.id === activeTab.id ? { ...t, saved: true } : t))
       );
-      notify("💾 Salvato in memoria");
+      notify("💾 Salvato");
     }
   };
 
+  const downloadActiveTab = () => {
+    if (!activeTab) return;
+    const blob = new Blob([activeTab.code], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = activeTab.name;
+    a.click();
+    URL.revokeObjectURL(url);
+    notify("⬇ File scaricato");
+  };
+
+  const copyActiveCode = () => {
+    if (!activeTab) return;
+    navigator.clipboard?.writeText(activeTab.code);
+    notify("📋 Codice copiato");
+  };
+
   const handleOpenRelFile = async (rel) => {
-    // Check if already open
-    const existing = tabs.find((t) => t.relPath === rel);
-    if (existing) {
-      setActiveTabId(existing.id);
+    const byRel = tabs.find((t) => t.relPath === rel || (!t.relPath && t.name === rel));
+    if (byRel) {
+      setActiveTabId(byRel.id);
       return;
     }
+    if (!isDesktop) return;
 
     try {
       const res = await wsRead(rel);
@@ -500,7 +880,7 @@ export default function WorkingCodeEditor() {
       setTabs((ts) => [...ts, newT]);
       setActiveTabId(newT.id);
     } catch (e) {
-      alert("Impossibile aprire il file: " + (e.message || e));
+      notify("❌ " + (e.message || e));
     }
   };
 
@@ -523,36 +903,55 @@ export default function WorkingCodeEditor() {
     setActiveTabId(t.id);
   };
 
-  const notify = (msg) => {
-    setStatusNotification(msg);
-    setTimeout(() => setStatusNotification(""), 2000);
+  const renameTab = (id) => {
+    const t = tabs.find((x) => x.id === id);
+    if (!t || t.relPath) return;
+    const n = window.prompt("Rinomina scheda:", t.name);
+    if (n && n.trim()) {
+      setTabs((ts) => ts.map((x) => (x.id === id ? { ...x, name: n.trim() } : x)));
+    }
   };
 
-  // ── Execution Logic (Locale & Wandbox) ──
-  const handleRun = async () => {
-    if (running || !activeTab) return;
+  // ── Run / Input / Stop ──
+  const localAvailable = isDesktop && hasLocalToolchain(toolchain, activeTab?.langId, selectedCompiler);
+  const useLocal =
+    isDesktop &&
+    (runMode === "local" || (runMode === "auto" && localAvailable));
 
-    setRunning(true);
-    setIsWaitingInput(false);
-    setOutputLines([]);
+  const handleRun = async () => {
+    if (!activeTab) return;
+    if (running) {
+      await handleKill();
+    }
+
     setDiagnostics([]);
-    setStatusMsg("Compilazione in corso...");
     setPanelOpen(true);
     setPanelTab("output");
 
     const code = activeTab.code;
     const langId = activeTab.langId;
-    const flags = compilerOptions.split(/[\r\n]+/).map((s) => s.trim()).filter(Boolean);
+    const compiler = selectedCompiler || getPreferredCompiler(langId);
+    const flags = compilerOptions
+      .split(/[\r\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-    // Desktop Local Execution
-    if (isDesktop && runLocation === "local") {
+    if (useLocal) {
       const runId = newId();
       activeRunIdRef.current = runId;
+      cloudSessionRef.current = null;
+      localCompileBufRef.current = "";
+      localStartTimeRef.current = Date.now();
+      localRunSpecRef.current = { compiler, code, langId, options: compilerOptions };
 
+      setRunning(true);
+      setIsWaitingInput(false);
+      setStatusMsg("Compilazione in corso...");
       setOutputLines([
         {
           type: "system",
-          text: `─── Avvio esecuzione locale [${langId.toUpperCase()} · ${selectedCompiler}] ───`,
+          text: `─── WorkingCode [${langId.toUpperCase()} · ${compiler}] ───`,
+          open: false,
         },
       ]);
 
@@ -562,169 +961,173 @@ export default function WorkingCodeEditor() {
           lang: langId,
           filename: activeTab.name,
           code,
-          compiler: selectedCompiler,
+          compiler,
           flags,
-          mainClass: "Main",
+          mainClass: javaMainClass(code),
         });
-      } catch (e) {
-        setOutputLines((prev) => [
-          ...prev,
-          { type: "error", text: "❌ Errore avvio processo: " + (e.message || e) },
-        ]);
-        setRunning(false);
-        setStatusMsg("Errore di avvio");
+      } catch {
+        // Fallback immediato al compilatore Cloud integrato
+        startCloudExecution(compiler, code, langId, compilerOptions);
       }
       return;
     }
 
-    // Cloud / Wandbox Execution (or Fallback)
-    setOutputLines([
-      {
-        type: "system",
-        text: `─── Compilazione Cloud Wandbox [${selectedCompiler}] ───`,
-      },
-    ]);
-
-    try {
-      const t0 = Date.now();
-      const processed = codeNeedsInput(code, langId) ? makeInteractive(code, langId) : code;
-      const res = await wandboxRun(selectedCompiler, processed, "", compilerOptions);
-      const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
-
-      const allOutput = (res.compiler_error || "") + "\n" + (res.compiler_message || "");
-      const diags = parseDiagnostics(allOutput);
-      setDiagnostics(diags);
-
-      if (res.compiler_error && !res.program_output) {
-        res.compiler_error.split("\n").forEach((l) => setOutputLines((p) => [...p, { type: "error", text: l }]));
-        setStatusMsg(`Errore di compilazione (${elapsed}s)`);
-      } else {
-        if (res.compiler_message) {
-          res.compiler_message.split("\n").forEach((l) => setOutputLines((p) => [...p, { type: "warn", text: l }]));
-        }
-        if (res.program_output) {
-          res.program_output.split("\n").forEach((l) => setOutputLines((p) => [...p, { type: "stdout", text: l }]));
-        }
-        if (res.program_error) {
-          res.program_error.split("\n").forEach((l) => setOutputLines((p) => [...p, { type: "warn", text: l }]));
-        }
-        const ok = (res.status || "0") === "0";
-        setStatusMsg(`Completato · Codice ${res.status || 0} (${elapsed}s)`);
-        setOutputLines((p) => [
-          ...p,
-          {
-            type: "status",
-            text: `─── ${ok ? "✅" : "❌"} Codice ${res.status || "0"} · ${elapsed}s (Wandbox) ───`,
-          },
-        ]);
-      }
-    } catch (e) {
-      setOutputLines((p) => [...p, { type: "error", text: "❌ " + (e.message || e) }]);
-      setStatusMsg("Errore di rete");
-    } finally {
-      setRunning(false);
-    }
+    // Esecuzione Cloud immediata (nessun download o installazione richiesta)
+    startCloudExecution(compiler, code, langId, compilerOptions);
   };
 
   const handleSendStdin = async (text) => {
-    setOutputLines((prev) => [...prev, { type: "input", text }]);
-    setIsWaitingInput(false);
+    setOutputLines((prev) => appendUserEcho(prev, text));
 
-    if (isDesktop && runLocation === "local" && activeRunIdRef.current) {
+    if (cloudSessionRef.current) {
+      const session = cloudSessionRef.current;
+      session.inputs = [...session.inputs, text];
+      setIsWaitingInput(false);
+      setStatusMsg("Esecuzione...");
+      await executeCloudStep(session, false);
+      return;
+    }
+
+    if (isDesktop && activeRunIdRef.current) {
       try {
         await runStdin(activeRunIdRef.current, text + "\n");
       } catch (e) {
-        setOutputLines((prev) => [...prev, { type: "error", text: "Errore stdin: " + e.message }]);
+        setOutputLines((prev) => [
+          ...prev,
+          { type: "error", text: "Errore invio input: " + (e.message || e), open: false },
+        ]);
       }
+    }
+  };
+
+  const handleCloseStdin = async () => {
+    if (cloudSessionRef.current) {
+      const session = cloudSessionRef.current;
+      setIsWaitingInput(false);
+      setStatusMsg("Fine input (EOF)...");
+      await executeCloudStep(session, true);
+      return;
+    }
+    if (isDesktop && activeRunIdRef.current) {
+      try {
+        await runCloseStdin(activeRunIdRef.current);
+      } catch {}
     }
   };
 
   const handleKill = async () => {
+    cloudSessionRef.current = null;
     if (isDesktop && activeRunIdRef.current) {
+      const id = activeRunIdRef.current;
+      activeRunIdRef.current = null;
       try {
-        await runKill(activeRunIdRef.current);
-        setOutputLines((p) => [...p, { type: "warn", text: "Processo interrotto dall'utente." }]);
+        await runKill(id);
       } catch {}
     }
+    setOutputLines((p) => [
+      ...p.map((l) => (l.open ? { ...l, open: false } : l)),
+      { type: "warn", text: "⏹ Esecuzione interrotta.", open: false },
+    ]);
     setRunning(false);
     setIsWaitingInput(false);
+    setStatusMsg("Interrotto");
   };
 
   // Keyboard Shortcuts
   useEffect(() => {
     const onKey = (e) => {
-      // Ctrl+S / Cmd+S
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
         saveActiveTab();
-      }
-      // F5 or Ctrl+Enter -> Run
-      if (e.key === "F5" || ((e.ctrlKey || e.metaKey) && e.key === "Enter")) {
+      } else if (e.key === "F5" || ((e.ctrlKey || e.metaKey) && e.key === "Enter")) {
         e.preventDefault();
         handleRun();
-      }
-      // Ctrl+P -> Quick Open
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "p") {
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         setShowQuickOpen(true);
-      }
-      // Ctrl+Shift+P -> Command Palette
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "p") {
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         setShowCommandPalette(true);
-      }
-      // Ctrl+B -> Toggle Sidebar
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
         e.preventDefault();
         setSidebarView((v) => (v ? null : "explorer"));
-      }
-      // Ctrl+J -> Toggle Bottom Panel
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "j" || e.key === "`")) {
         e.preventDefault();
         setPanelOpen((p) => !p);
-      }
-      // Ctrl+F -> Find Bar
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
         setShowFind((f) => !f);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        setShowGoto(true);
       }
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeTab, running, compilerOptions, selectedCompiler, runLocation]);
+  });
 
-  // Jump to Diagnostic location
   const handleJumpToLocation = (loc) => {
     if (!loc) return;
-    if (editorRef.current) {
-      editorRef.current.gotoLine(loc.line, loc.col || 1);
-    }
+    editorRef.current?.gotoLine(loc.line, loc.col || 1);
   };
 
-  // Available commands for Command Palette
+  // Switch language on active tab (replaces template if code is untouched default template)
+  const handleLanguageChange = (newLangId) => {
+    const chosen = LANGUAGES.find((x) => x.id === newLangId);
+    if (!chosen || !activeTab) return;
+    const isDefaultCode =
+      !activeTab.code.trim() || DEFAULT_TEMPLATES.has(activeTab.code.trim());
+    setTabs((ts) =>
+      ts.map((t) =>
+        t.id === activeTab.id
+          ? {
+              ...t,
+              langId: chosen.id,
+              name: t.relPath
+                ? t.name
+                : chosen.id === "java"
+                ? "Main.java"
+                : `main.${chosen.ext}`,
+              code: isDefaultCode ? chosen.template : t.code,
+            }
+          : t
+      )
+    );
+  };
+
+  // Command Palette actions
   const commands = [
-    { category: "Esecuzione", title: "▶ Esegui Codice", shortcut: "F5", action: handleRun },
-    { category: "Esecuzione", title: "⏹ Interrompi Processo", action: handleKill },
+    { category: "Esecuzione", title: "▶ Compila ed Esegui Codice", shortcut: "F5", action: handleRun },
+    { category: "Esecuzione", title: "⏹ Interrompi Esecuzione", action: handleKill },
     { category: "File", title: "Salva File", shortcut: "Ctrl+S", action: saveActiveTab },
+    { category: "File", title: "Scarica File sul PC", action: downloadActiveTab },
+    { category: "File", title: "Copia Codice negli Appunti", action: copyActiveCode },
     { category: "File", title: "Cerca File (Quick Open)", shortcut: "Ctrl+P", action: () => setShowQuickOpen(true) },
+    ...(isDesktop
+      ? [{ category: "File", title: "Apri Cartella dal PC...", action: () => wsOpen() }]
+      : []),
     { category: "File", title: "Nuovo File C", action: () => addNewTab("c") },
     { category: "File", title: "Nuovo File C++", action: () => addNewTab("cpp") },
     { category: "File", title: "Nuovo File Java", action: () => addNewTab("java") },
     { category: "File", title: "Nuovo File Python", action: () => addNewTab("python") },
+    { category: "Editor", title: "Vai alla Riga...", shortcut: "Ctrl+G", action: () => setShowGoto(true) },
+    { category: "Editor", title: "Cerca e Sostituisci", shortcut: "Ctrl+F", action: () => setShowFind(true) },
     { category: "Visualizza", title: "Mostra/Nascondi Barra Laterale", shortcut: "Ctrl+B", action: () => setSidebarView((v) => (v ? null : "explorer")) },
     { category: "Visualizza", title: "Mostra/Nascondi Pannello Inferiore", shortcut: "Ctrl+J", action: () => setPanelOpen((p) => !p) },
+    { category: "Visualizza", title: "Apri Console di Esecuzione", action: () => { setPanelOpen(true); setPanelTab("output"); } },
     { category: "Visualizza", title: "Apri Terminale PowerShell", action: () => { setPanelOpen(true); setPanelTab("terminal"); } },
-    { category: "Visualizza", title: "Cerca nel file", shortcut: "Ctrl+F", action: () => setShowFind(true) },
-    { category: "Visualizza", title: "Ingrandisci Carattere", action: () => setFontSize((s) => Math.min(24, s + 1)) },
-    { category: "Visualizza", title: "Riduci Carattere", action: () => setFontSize((s) => Math.max(10, s - 1)) },
-    { category: "Compilatore", title: "Imposta Opzioni Compilatore", action: () => setShowOptionsModal(true) },
+    { category: "Visualizza", title: "Ingrandisci Carattere (+)", action: () => setFontSize((s) => Math.min(24, s + 1)) },
+    { category: "Visualizza", title: "Riduci Carattere (-)", action: () => setFontSize((s) => Math.max(10, s - 1)) },
+    { category: "Compilatore", title: "Configura Opzioni Compilatore", action: () => setShowOptionsModal(true) },
     ...(SNIPPETS[activeTab.langId] || []).map((snip) => ({
-      category: `Snippet (${activeTab.langId.toUpperCase()})`,
-      title: snip.name,
+      category: `Snippet ${activeTab.langId.toUpperCase()}`,
+      title: `Inserisci: ${snip.name}`,
       action: () => editorRef.current?.insertText(snip.text),
     })),
   ];
+
+  const totalLines = activeTab.code.split("\n").length;
 
   return (
     <div
@@ -760,35 +1163,32 @@ export default function WorkingCodeEditor() {
           flexWrap: "wrap",
         }}
       >
-        {/* Run / Stop Button */}
+        {/* Run Button */}
         <button
           onClick={handleRun}
-          disabled={running}
-          title="Esegui (F5 / Ctrl+Enter)"
+          title="Compila ed Esegui (F5 / Ctrl+Invio) — Nessuna installazione richiesta"
           style={{
-            padding: "5px 14px",
+            padding: "5px 15px",
             borderRadius: 7,
             border: "none",
-            background: running
-              ? "#1a0005"
-              : `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`,
+            background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`,
             color: "#fff",
             fontWeight: 700,
             fontSize: 12,
-            cursor: running ? "not-allowed" : "pointer",
-            boxShadow: running ? "none" : `0 0 12px ${ACCENT}55`,
+            cursor: "pointer",
+            boxShadow: `0 0 12px ${ACCENT}55`,
             display: "flex",
             alignItems: "center",
             gap: 6,
           }}
         >
-          {running ? "⏳ ..." : "▶ Esegui"}
+          {running ? "↻ Riesegui" : "▶ Esegui"}
         </button>
 
         {running && (
           <button
             onClick={handleKill}
-            title="Ferma processo"
+            title="Ferma esecuzione"
             style={{
               padding: "5px 10px",
               borderRadius: 7,
@@ -809,22 +1209,8 @@ export default function WorkingCodeEditor() {
         {/* Language Select */}
         <select
           value={activeTab.langId}
-          onChange={(e) => {
-            const chosen = LANGUAGES.find((x) => x.id === e.target.value);
-            if (chosen) {
-              setTabs((ts) =>
-                ts.map((t) =>
-                  t.id === activeTab.id
-                    ? {
-                        ...t,
-                        langId: chosen.id,
-                        name: t.relPath ? t.name : `main.${chosen.ext}`,
-                      }
-                    : t
-                )
-              );
-            }
-          }}
+          onChange={(e) => handleLanguageChange(e.target.value)}
+          title="Linguaggio di programmazione"
           style={{
             padding: "4px 8px",
             borderRadius: 6,
@@ -832,6 +1218,7 @@ export default function WorkingCodeEditor() {
             background: "#140007",
             color: "#fff",
             fontSize: 12,
+            fontWeight: 600,
             outline: "none",
             cursor: "pointer",
           }}
@@ -850,6 +1237,7 @@ export default function WorkingCodeEditor() {
             setSelectedCompiler(e.target.value);
             setPreferredCompiler(activeLang.id, e.target.value);
           }}
+          title="Versione del compilatore / interprete"
           style={{
             padding: "4px 8px",
             borderRadius: 6,
@@ -869,56 +1257,31 @@ export default function WorkingCodeEditor() {
           ))}
         </select>
 
-        {/* Local / Cloud Location Toggle */}
-        {isDesktop && (
+        {/* Options Button */}
+        {(activeTab.langId === "c" || activeTab.langId === "cpp") && (
           <button
-            onClick={() => setRunLocation((loc) => (loc === "local" ? "cloud" : "local"))}
-            title={
-              runLocation === "local"
-                ? "Esecuzione su compilatore locale Windows"
-                : "Esecuzione su Cloud Wandbox"
-            }
+            onClick={() => setShowOptionsModal(true)}
+            title="Opzioni compilatore (-std, -Wall, -O2...)"
             style={{
-              padding: "4px 9px",
+              padding: "4px 8px",
               borderRadius: 6,
-              border: `1px solid ${runLocation === "local" ? "#34d399" : "#60a5fa"}`,
-              background: runLocation === "local" ? "rgba(52,211,153,0.1)" : "rgba(96,165,250,0.1)",
-              color: runLocation === "local" ? "#34d399" : "#60a5fa",
-              fontSize: 11,
-              fontWeight: 600,
+              border: `1px solid ${BORDER}`,
+              background: "transparent",
+              color: "rgba(255,255,255,0.75)",
+              fontSize: 12,
               cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
             }}
           >
-            {runLocation === "local" ? "🖥️ Locale" : "☁️ Cloud"}
+            ⚙️ Flag
           </button>
         )}
-
-        {/* Options Button */}
-        <button
-          onClick={() => setShowOptionsModal(true)}
-          title="Opzioni compilatore (-Wall, -std, -O2...)"
-          style={{
-            padding: "4px 8px",
-            borderRadius: 6,
-            border: `1px solid ${BORDER}`,
-            background: "transparent",
-            color: "rgba(255,255,255,0.7)",
-            fontSize: 12,
-            cursor: "pointer",
-          }}
-        >
-          ⚙️
-        </button>
 
         <div style={{ width: 1, height: 20, background: BORDER, margin: "0 2px" }} />
 
         {/* File Actions */}
         <button
           onClick={saveActiveTab}
-          title="Salva file (Ctrl+S)"
+          title="Salva (Ctrl+S)"
           style={{
             padding: "4px 8px",
             borderRadius: 6,
@@ -933,8 +1296,40 @@ export default function WorkingCodeEditor() {
         </button>
 
         <button
+          onClick={copyActiveCode}
+          title="Copia codice"
+          style={{
+            padding: "4px 8px",
+            borderRadius: 6,
+            border: `1px solid ${BORDER}`,
+            background: "transparent",
+            color: "#60a5fa",
+            fontSize: 12,
+            cursor: "pointer",
+          }}
+        >
+          📋
+        </button>
+
+        <button
+          onClick={downloadActiveTab}
+          title="Scarica file"
+          style={{
+            padding: "4px 8px",
+            borderRadius: 6,
+            border: `1px solid ${BORDER}`,
+            background: "transparent",
+            color: "#c084fc",
+            fontSize: 12,
+            cursor: "pointer",
+          }}
+        >
+          ⬇
+        </button>
+
+        <button
           onClick={() => setShowFind((f) => !f)}
-          title="Cerca nel codice (Ctrl+F)"
+          title="Cerca e sostituisci (Ctrl+F)"
           style={{
             padding: "4px 8px",
             borderRadius: 6,
@@ -948,7 +1343,6 @@ export default function WorkingCodeEditor() {
           🔍
         </button>
 
-        {/* Command Palette Button */}
         <button
           onClick={() => setShowCommandPalette(true)}
           title="Palette comandi (Ctrl+Shift+P)"
@@ -957,13 +1351,13 @@ export default function WorkingCodeEditor() {
             borderRadius: 6,
             border: `1px solid ${BORDER}`,
             background: "rgba(255,255,255,0.03)",
-            color: "rgba(255,255,255,0.7)",
+            color: "rgba(255,255,255,0.75)",
             fontSize: 11,
             cursor: "pointer",
             fontFamily: "Consolas",
           }}
         >
-          &gt; Comandi (Ctrl+Shift+P)
+          &gt; Comandi
         </button>
 
         <div style={{ flex: 1 }} />
@@ -978,13 +1372,13 @@ export default function WorkingCodeEditor() {
               borderRadius: 4,
               border: `1px solid ${BORDER}`,
               background: "transparent",
-              color: "rgba(255,255,255,0.5)",
+              color: "rgba(255,255,255,0.6)",
               cursor: "pointer",
             }}
           >
             -
           </button>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", minWidth: 20, textAlign: "center" }}>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", minWidth: 20, textAlign: "center" }}>
             {fontSize}
           </span>
           <button
@@ -995,7 +1389,7 @@ export default function WorkingCodeEditor() {
               borderRadius: 4,
               border: `1px solid ${BORDER}`,
               background: "transparent",
-              color: "rgba(255,255,255,0.5)",
+              color: "rgba(255,255,255,0.6)",
               cursor: "pointer",
             }}
           >
@@ -1004,7 +1398,7 @@ export default function WorkingCodeEditor() {
         </div>
 
         {statusNotification && (
-          <span style={{ fontSize: 12, color: ACCENT, marginLeft: 8 }}>
+          <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600, marginLeft: 6 }}>
             {statusNotification}
           </span>
         )}
@@ -1012,10 +1406,10 @@ export default function WorkingCodeEditor() {
 
       {/* ── MAIN WORKSPACE BODY ── */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* ── Activity Bar (Leftmost VS Code icons) ── */}
+        {/* Activity Bar */}
         <div
           style={{
-            width: 48,
+            width: 46,
             flexShrink: 0,
             background: "#080003",
             borderRight: `1px solid ${BORDER}`,
@@ -1023,21 +1417,21 @@ export default function WorkingCodeEditor() {
             flexDirection: "column",
             alignItems: "center",
             padding: "8px 0",
-            gap: 8,
+            gap: 6,
           }}
         >
           <button
-            className={`act-btn${sidebarView === "explorer" ? " active" : ""}`}
+            className="act-btn"
             onClick={() => setSidebarView((v) => (v === "explorer" ? null : "explorer"))}
             title="Esplora Risorse (Ctrl+B)"
             style={{
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               borderRadius: 8,
               border: "none",
               background: sidebarView === "explorer" ? "rgba(255,45,85,0.18)" : "transparent",
               color: sidebarView === "explorer" ? ACCENT : "rgba(255,255,255,0.45)",
-              fontSize: 18,
+              fontSize: 17,
               cursor: "pointer",
             }}
           >
@@ -1045,17 +1439,17 @@ export default function WorkingCodeEditor() {
           </button>
 
           <button
-            className={`act-btn${sidebarView === "search" ? " active" : ""}`}
+            className="act-btn"
             onClick={() => setSidebarView((v) => (v === "search" ? null : "search"))}
             title="Cerca nei file"
             style={{
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               borderRadius: 8,
               border: "none",
               background: sidebarView === "search" ? "rgba(255,45,85,0.18)" : "transparent",
               color: sidebarView === "search" ? ACCENT : "rgba(255,255,255,0.45)",
-              fontSize: 18,
+              fontSize: 17,
               cursor: "pointer",
             }}
           >
@@ -1063,36 +1457,58 @@ export default function WorkingCodeEditor() {
           </button>
 
           <button
-            className={`act-btn${sidebarView === "snippets" ? " active" : ""}`}
+            className="act-btn"
             onClick={() => setSidebarView((v) => (v === "snippets" ? null : "snippets"))}
             title="Frammenti di codice (Snippets)"
             style={{
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               borderRadius: 8,
               border: "none",
               background: sidebarView === "snippets" ? "rgba(255,45,85,0.18)" : "transparent",
               color: sidebarView === "snippets" ? ACCENT : "rgba(255,255,255,0.45)",
-              fontSize: 18,
+              fontSize: 17,
               cursor: "pointer",
             }}
           >
             🧩
           </button>
 
+          <button
+            className="act-btn"
+            onClick={() => {
+              setPanelOpen(true);
+              setPanelTab("terminal");
+            }}
+            title="Terminale PowerShell"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              border: "none",
+              background: panelOpen && panelTab === "terminal" ? "rgba(59,130,246,0.2)" : "transparent",
+              color: panelOpen && panelTab === "terminal" ? "#60a5fa" : "rgba(255,255,255,0.45)",
+              fontSize: 17,
+              cursor: "pointer",
+            }}
+          >
+            🖥️
+          </button>
+
           <div style={{ flex: 1 }} />
 
           <button
+            className="act-btn"
             onClick={() => setShowCommandPalette(true)}
-            title="Comandi e scorciatoie (Ctrl+Shift+P)"
+            title="Palette comandi (Ctrl+Shift+P)"
             style={{
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               borderRadius: 8,
               border: "none",
               background: "transparent",
               color: "rgba(255,255,255,0.45)",
-              fontSize: 18,
+              fontSize: 17,
               cursor: "pointer",
             }}
           >
@@ -1100,9 +1516,9 @@ export default function WorkingCodeEditor() {
           </button>
         </div>
 
-        {/* ── Sidebar View (Explorer / Search / Snippets) ── */}
+        {/* Sidebar View */}
         {sidebarView && (
-          <div style={{ width: 250, flexShrink: 0, height: "100%", overflow: "hidden" }}>
+          <div style={{ width: 245, flexShrink: 0, height: "100%", overflow: "hidden" }}>
             {sidebarView === "explorer" && (
               <FileExplorer
                 activeFileRel={activeTab?.relPath}
@@ -1111,6 +1527,7 @@ export default function WorkingCodeEditor() {
                 onCloseTab={closeTab}
                 onSelectTab={(id) => setActiveTabId(id)}
                 activeTabId={activeTabId}
+                onWorkspaceChange={setWorkspaceInfo}
               />
             )}
 
@@ -1120,7 +1537,7 @@ export default function WorkingCodeEditor() {
                 onOpenFileAndLine={(match) => {
                   if (match.isTab) {
                     setActiveTabId(match.tabId);
-                  } else {
+                  } else if (match.file) {
                     handleOpenRelFile(match.file);
                   }
                   setTimeout(() => {
@@ -1142,8 +1559,11 @@ export default function WorkingCodeEditor() {
                   fontSize: 12,
                 }}
               >
-                <div style={{ fontWeight: 700, color: ACCENT, fontSize: 11, textTransform: "uppercase", marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: ACCENT, fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>
                   Snippets ({activeTab.langId.toUpperCase()})
+                </div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 10 }}>
+                  Clicca uno snippet per inserirlo alla posizione del cursore:
                 </div>
                 <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
                   {(SNIPPETS[activeTab.langId] || []).map((snip, i) => (
@@ -1160,11 +1580,11 @@ export default function WorkingCodeEditor() {
                       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,45,85,0.12)")}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
                     >
-                      <div style={{ fontWeight: 600, color: "#fff" }}>{snip.name}</div>
+                      <div style={{ fontWeight: 600, color: "#fff" }}>🧩 {snip.name}</div>
                       <div
                         style={{
                           fontSize: 10,
-                          color: "rgba(255,255,255,0.4)",
+                          color: "rgba(255,255,255,0.45)",
                           fontFamily: "Consolas",
                           marginTop: 3,
                           overflow: "hidden",
@@ -1182,9 +1602,9 @@ export default function WorkingCodeEditor() {
           </div>
         )}
 
-        {/* ── Center Editor Area + Bottom Panel ── */}
+        {/* Center Editor Area + Bottom Panel */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-          {/* ── Tab Bar ── */}
+          {/* Tab Bar */}
           <div
             style={{
               display: "flex",
@@ -1202,6 +1622,8 @@ export default function WorkingCodeEditor() {
                   key={tab.id}
                   className="tab-item"
                   onClick={() => setActiveTabId(tab.id)}
+                  onDoubleClick={() => renameTab(tab.id)}
+                  title={tab.relPath || `${tab.name} (doppio clic per rinominare)`}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -1225,7 +1647,7 @@ export default function WorkingCodeEditor() {
                       e.stopPropagation();
                       closeTab(tab.id);
                     }}
-                    style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", padding: "0 2px" }}
+                    style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", padding: "0 2px" }}
                   >
                     ×
                   </span>
@@ -1233,7 +1655,6 @@ export default function WorkingCodeEditor() {
               );
             })}
 
-            {/* Quick add tab dropdown */}
             <select
               value=""
               onChange={(e) => {
@@ -1247,7 +1668,7 @@ export default function WorkingCodeEditor() {
                 padding: "3px 6px",
                 background: "transparent",
                 border: `1px solid ${BORDER}`,
-                color: "rgba(255,255,255,0.5)",
+                color: "rgba(255,255,255,0.55)",
                 fontSize: 11,
                 borderRadius: 5,
                 outline: "none",
@@ -1256,14 +1677,13 @@ export default function WorkingCodeEditor() {
             >
               <option value="">+ Nuovo File</option>
               {LANGUAGES.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.label}
+                <option key={l.id} value={l.id} style={{ background: "#120006", color: "#fff" }}>
+                  {l.label} (.{l.ext})
                 </option>
               ))}
             </select>
           </div>
 
-          {/* ── Find Bar ── */}
           {showFind && (
             <FindBar
               code={activeTab.code}
@@ -1272,7 +1692,7 @@ export default function WorkingCodeEditor() {
             />
           )}
 
-          {/* ── Code Editor ── */}
+          {/* Code Editor */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
             <CodeEditor
               ref={editorRef}
@@ -1285,7 +1705,7 @@ export default function WorkingCodeEditor() {
             />
           </div>
 
-          {/* ── Panel Splitter ── */}
+          {/* Panel Splitter */}
           {panelOpen && (
             <div
               onMouseDown={() => setDraggingPanel(true)}
@@ -1304,10 +1724,17 @@ export default function WorkingCodeEditor() {
             </div>
           )}
 
-          {/* ── Bottom Panel (Output / Terminal / Problems) ── */}
+          {/* Bottom Panel */}
           {panelOpen && (
-            <div style={{ height: panelHeight, flexShrink: 0, display: "flex", flexDirection: "column", background: BG_PANEL }}>
-              {/* Panel Tabs Header */}
+            <div
+              style={{
+                height: panelHeight,
+                flexShrink: 0,
+                display: "flex",
+                flexDirection: "column",
+                background: BG_PANEL,
+              }}
+            >
               <div
                 style={{
                   display: "flex",
@@ -1332,7 +1759,7 @@ export default function WorkingCodeEditor() {
                     color: panelTab === "output" ? "#ffffff" : "rgba(255,255,255,0.5)",
                   }}
                 >
-                  ▶ Output
+                  ▶ Console Output {isWaitingInput ? "●" : ""}
                 </button>
 
                 <button
@@ -1348,7 +1775,7 @@ export default function WorkingCodeEditor() {
                     color: panelTab === "terminal" ? "#60a5fa" : "rgba(255,255,255,0.5)",
                   }}
                 >
-                  ⚡ Terminale {isDesktop ? "PowerShell" : "(Web)"}
+                  ⚡ Terminale PowerShell
                 </button>
 
                 <button
@@ -1361,7 +1788,12 @@ export default function WorkingCodeEditor() {
                     fontSize: 11,
                     fontWeight: panelTab === "problems" ? 700 : 500,
                     background: panelTab === "problems" ? "rgba(245,158,11,0.22)" : "transparent",
-                    color: panelTab === "problems" ? "#fde047" : "rgba(255,255,255,0.5)",
+                    color:
+                      panelTab === "problems"
+                        ? "#fde047"
+                        : diagnostics.length > 0
+                        ? "#fca5a5"
+                        : "rgba(255,255,255,0.5)",
                   }}
                 >
                   ⚠️ Problemi ({diagnostics.length})
@@ -1370,12 +1802,29 @@ export default function WorkingCodeEditor() {
                 <div style={{ flex: 1 }} />
 
                 <button
-                  onClick={() => setPanelOpen(false)}
-                  title="Chiudi pannello (Ctrl+J)"
+                  onClick={() =>
+                    setPanelHeight((h) => (h > 360 ? 240 : Math.min(520, window.innerHeight - 180)))
+                  }
+                  title="Ingrandisci/Riduci pannello"
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "rgba(255,255,255,0.4)",
+                    color: "rgba(255,255,255,0.45)",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    padding: "2px 6px",
+                  }}
+                >
+                  ↕
+                </button>
+
+                <button
+                  onClick={() => setPanelOpen(false)}
+                  title="Nascondi pannello (Ctrl+J)"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "rgba(255,255,255,0.45)",
                     cursor: "pointer",
                     fontSize: 14,
                     padding: "2px 6px",
@@ -1385,7 +1834,6 @@ export default function WorkingCodeEditor() {
                 </button>
               </div>
 
-              {/* Panel Content (Terminal is kept alive via display toggle) */}
               <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
                 {panelTab === "output" && (
                   <OutputPane
@@ -1394,8 +1842,12 @@ export default function WorkingCodeEditor() {
                     statusMsg={statusMsg}
                     isWaitingForInput={isWaitingInput}
                     onSendInput={handleSendStdin}
+                    onCloseInput={handleCloseStdin}
                     onKill={handleKill}
-                    onClear={() => setOutputLines([])}
+                    onClear={() => {
+                      setOutputLines([]);
+                      setStatusMsg("");
+                    }}
                     onJumpToLocation={handleJumpToLocation}
                   />
                 )}
@@ -1414,7 +1866,7 @@ export default function WorkingCodeEditor() {
             </div>
           )}
 
-          {/* ── Status Bar (Bottom) ── */}
+          {/* Status Bar */}
           <div
             style={{
               height: 24,
@@ -1426,18 +1878,36 @@ export default function WorkingCodeEditor() {
               padding: "0 10px",
               gap: 12,
               fontSize: 11,
-              color: "rgba(255,255,255,0.55)",
+              color: "rgba(255,255,255,0.6)",
               userSelect: "none",
             }}
           >
+            {workspaceInfo && (
+              <span style={{ color: ACCENT, fontWeight: 600 }} title={workspaceInfo.path}>
+                📂 {workspaceInfo.name}
+              </span>
+            )}
+
             <span
               onClick={() => {
                 setPanelOpen(true);
                 setPanelTab("problems");
               }}
-              style={{ cursor: "pointer", color: diagnostics.length > 0 ? "#ef4444" : "inherit" }}
+              style={{ cursor: "pointer", color: diagnostics.length > 0 ? "#f87171" : "inherit" }}
+              title="Mostra problemi di compilazione"
             >
               ⚠️ {diagnostics.length}
+            </span>
+
+            <span
+              onClick={() => {
+                setPanelOpen(true);
+                setPanelTab("output");
+              }}
+              style={{ cursor: "pointer" }}
+              title="Apri Console Output"
+            >
+              ▶ Output
             </span>
 
             <span
@@ -1446,36 +1916,47 @@ export default function WorkingCodeEditor() {
                 setPanelTab("terminal");
               }}
               style={{ cursor: "pointer" }}
+              title="Apri Terminale PowerShell"
             >
               🖥️ Terminale
             </span>
 
             <div style={{ flex: 1 }} />
 
-            <span>
+            <span
+              onClick={() => setShowGoto(true)}
+              style={{ cursor: "pointer" }}
+              title="Vai alla riga (Ctrl+G)"
+            >
               Ln {cursorPos.line}, Col {cursorPos.col}
             </span>
 
             <span>Spazi: 4</span>
-
             <span>UTF-8</span>
 
             <span
               onClick={() => setShowOptionsModal(true)}
               style={{ cursor: "pointer", color: ACCENT, fontWeight: 600 }}
-              title="Configura compilatore"
+              title="Compilatore attivo"
             >
               {activeLang.label} ({selectedCompiler})
             </span>
 
-            <span>
-              {isDesktop && runLocation === "local" ? "🖥️ Windows Locale" : "☁️ Wandbox"}
+            <span
+              onClick={() => {
+                if (!isDesktop) return;
+                changeRunMode(runMode === "cloud" ? "auto" : "cloud");
+              }}
+              style={{ cursor: isDesktop ? "pointer" : "default", color: "#34d399" }}
+              title="Pronto all'uso senza installare nulla"
+            >
+              {useLocal ? "⚡ Toolchain PC" : "⚡ Compilatore Integrato (Zero-Install)"}
             </span>
           </div>
         </div>
       </div>
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
@@ -1487,6 +1968,13 @@ export default function WorkingCodeEditor() {
         onClose={() => setShowQuickOpen(false)}
         onSelectFile={handleOpenRelFile}
         openTabs={tabs}
+      />
+
+      <GotoLineModal
+        isOpen={showGoto}
+        maxLine={totalLines}
+        onClose={() => setShowGoto(false)}
+        onGoto={(line) => editorRef.current?.gotoLine(line, 1)}
       />
 
       <CompilerOptionsModal

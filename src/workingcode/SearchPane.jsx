@@ -21,7 +21,14 @@ export default function SearchPane({ onOpenFileAndLine, openTabs = [] }) {
     try {
       if (isDesktopApp()) {
         const matches = await wsGrep(q, caseSensitive);
-        setResults(matches || []);
+        setResults(
+          (matches || []).map((m) => ({
+            file: m.path || m.file || "",
+            line: m.line || 1,
+            col: m.col || 1,
+            text: m.text || "",
+          }))
+        );
       } else {
         // In-memory search across openTabs
         const out = [];

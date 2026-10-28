@@ -21,7 +21,11 @@ export const COMPILERS_BY_LANG = {
     { id: "openjdk-jdk-21+35", label: "OpenJDK 21 (LTS)",   short: "Java 21",    version: "21" },
   ],
   python: [
-    { id: "cpython-head",      label: "Python 3 (Interprete)", short: "Python 3",   version: "3.x" },
+    { id: "cpython-3.12.7",     label: "Python 3.12 (Consigliato)", short: "Python 3.12", version: "3.12.7" },
+    { id: "cpython-3.13.8",     label: "Python 3.13",               short: "Python 3.13", version: "3.13.8" },
+    { id: "cpython-3.11.10",    label: "Python 3.11",               short: "Python 3.11", version: "3.11.10" },
+    { id: "cpython-head",       label: "Python 3 (Latest)",         short: "Python Head", version: "Latest" },
+    { id: "pypy-3.10-v7.3.17",  label: "PyPy 3.10 (JIT Veloce)",    short: "PyPy 3.10",   version: "7.3.17" },
   ],
 };
 
@@ -33,10 +37,33 @@ export const C_STANDARDS = [
   { id: "-std=c2x", label: "C23 (Moderno)" },
 ];
 
+export const CPP_STANDARDS = [
+  { id: "-std=c++20", label: "C++20 (Consigliato)" },
+  { id: "-std=c++17", label: "C++17 (Scuola/Gare)" },
+  { id: "-std=c++14", label: "C++14" },
+  { id: "-std=c++11", label: "C++11" },
+  { id: "-std=c++23", label: "C++23 (Moderno)" },
+];
+
 export const WARNING_FLAGS = [
   { id: "-Wall", label: "-Wall (Tutti i warning)" },
   { id: "-Wextra", label: "-Wextra (Warning aggiuntivi)" },
+  { id: "-pedantic", label: "-pedantic (Standard rigoroso)" },
+  { id: "-O2", label: "-O2 (Ottimizzazione)" },
+  { id: "-lm", label: "-lm (Libreria matematica)" },
 ];
+
+/** Verifica se la toolchain locale del PC dispone del compilatore per il linguaggio selezionato. */
+export function hasLocalToolchain(toolchain, langId, compilerId = "") {
+  if (!Array.isArray(toolchain) || toolchain.length === 0) return false;
+  const has = (name) => toolchain.some((t) => t.name === name && t.found);
+  const wantClang = (compilerId || "").includes("clang");
+  if (langId === "c") return wantClang ? has("clang") : has("gcc");
+  if (langId === "cpp") return wantClang ? has("clang++") : has("g++");
+  if (langId === "java") return has("javac") && has("java");
+  if (langId === "python") return has("python");
+  return false;
+}
 
 const PREF_COMPILER_KEY = "wc_preferred_compiler_";
 const PREF_OPTIONS_KEY  = "wc_compiler_options_";

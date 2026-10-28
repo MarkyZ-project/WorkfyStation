@@ -10,6 +10,7 @@ export default function OutputPane({
   statusMsg = "",
   isWaitingForInput = false,
   onSendInput,
+  onCloseInput,
   onKill,
   onClear,
   onJumpToLocation,
@@ -18,19 +19,17 @@ export default function OutputPane({
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Auto-scroll on new output
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [lines, isWaitingForInput]);
 
-  // Focus input when waiting for input
   useEffect(() => {
     if (isWaitingForInput && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [isWaitingForInput]);
+  }, [isWaitingForInput, lines.length]);
 
   const handleSubmitInput = () => {
     if (!onSendInput) return;
@@ -46,17 +45,19 @@ export default function OutputPane({
       case "warn":
         return "#fde047";
       case "system":
-        return "rgba(255,45,85,0.7)";
+        return "rgba(255,45,85,0.75)";
       case "input":
         return "#60a5fa";
       case "info":
         return "#34d399";
       case "status":
-        return "rgba(255,255,255,0.45)";
+        return "rgba(255,255,255,0.5)";
       default:
         return "#e2e8f0";
     }
   };
+
+  const canInput = running || isWaitingForInput;
 
   return (
     <div
@@ -66,11 +67,11 @@ export default function OutputPane({
         height: "100%",
         background: "#030002",
         fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
-        fontSize: 12,
+        fontSize: 13,
         overflow: "hidden",
       }}
     >
-      {/* ── Output Header ── */}
+      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -82,11 +83,11 @@ export default function OutputPane({
           flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>
-          ▶ OUTPUT ESECUZIONE
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
+          ▶ CONSOLE DI ESECUZIONE
         </span>
 
-        {running && (
+        {running && !isWaitingForInput && (
           <span style={{ color: "#fbbf24", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
             <span>●</span> In esecuzione...
           </span>
@@ -94,7 +95,7 @@ export default function OutputPane({
 
         {isWaitingForInput && (
           <span style={{ color: "#34d399", fontSize: 11, fontWeight: 700 }}>
-            ● IN ATTESA DI INPUT
+            ● IN ATTESA DI INPUT (scrivi sotto e premi Invio)
           </span>
         )}
 
@@ -106,10 +107,10 @@ export default function OutputPane({
 
         <div style={{ flex: 1 }} />
 
-        {running && (
+        {canInput && (
           <button
             onClick={onKill}
-            title="Interrompi processo (Ctrl+C / Kill)"
+            title="Interrompi esecuzione"
             style={{
               padding: "2px 8px",
               borderRadius: 5,
@@ -127,13 +128,13 @@ export default function OutputPane({
 
         <button
           onClick={onClear}
-          title="Pulisci output"
+          title="Pulisci console"
           style={{
             padding: "2px 8px",
             borderRadius: 5,
             border: `1px solid ${BORDER}`,
             background: "transparent",
-            color: "rgba(255,255,255,0.4)",
+            color: "rgba(255,255,255,0.45)",
             cursor: "pointer",
             fontSize: 11,
           }}
@@ -142,23 +143,26 @@ export default function OutputPane({
         </button>
       </div>
 
-      {/* ── Console Lines ── */}
+      {/* Console Lines */}
       <div
         ref={scrollRef}
+        onClick={() => {
+          if (canInput) inputRef.current?.focus();
+        }}
         style={{
           flex: 1,
           overflow: "auto",
-          padding: "8px 12px",
-          lineHeight: 1.6,
+          padding: "10px 14px",
+          lineHeight: 1.65,
         }}
       >
         {lines.length === 0 ? (
-          <div style={{ color: "rgba(255,255,255,0.2)", fontStyle: "italic" }}>
-            Nessun output. Premi ▶ Esegui (F5) per compilare ed eseguire il codice.
+          <div style={{ color: "rgba(255,255,255,0.22)", fontStyle: "italic" }}>
+            Premi ▶ Esegui (F5) per compilare ed eseguire il programma senza installare nulla.
           </div>
         ) : (
           lines.map((l, i) => {
-            const loc = onJumpToLocation ? lineLocation(l.text) : null;
+            const loc = onJumpToLocation ? lineLocation(l.text || "") : null;
             return (
               <div
                 key={i}
@@ -166,36 +170,43 @@ export default function OutputPane({
                   color: getLineColor(l.type),
                   cursor: loc ? "pointer" : "text",
                   textDecoration: loc ? "underline" : "none",
-                  display: "flex",
-                  gap: 6,
+                  minHeight: l.text === "" && !l.suffixInput ? 8 : "auto",
                 }}
-                onClick={() => {
-                  if (loc) onJumpToLocation(loc);
+                onClick={(e) => {
+                  if (loc) {
+                    e.stopPropagation();
+                    onJumpToLocation(loc);
+                  }
                 }}
-                title={loc ? `Vai a riga ${loc.line}` : undefined}
+                title={loc ? `Clicca per andare alla riga ${loc.line}` : undefined}
               >
-                {l.type === "input" && <span style={{ color: "#60a5fa" }}>&gt;</span>}
-                <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{l.text}</span>
+                {l.type === "input" && <span style={{ color: "#60a5fa", opacity: 0.7 }}>&gt; </span>}
+                <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{l.text}</span>
+                {l.suffixInput !== undefined && (
+                  <span style={{ color: "#60a5fa", fontWeight: 700, whiteSpace: "pre-wrap" }}>
+                    {l.suffixInput}
+                  </span>
+                )}
               </div>
             );
           })
         )}
       </div>
 
-      {/* ── Interactive Input Bar (for scanf / cin / input) ── */}
+      {/* Interactive Input Bar */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 6,
-          padding: "6px 10px",
-          background: isWaitingForInput ? "rgba(0,25,12,0.9)" : "#060003",
-          borderTop: `1px solid ${isWaitingForInput ? "rgba(52,211,153,0.4)" : BORDER}`,
+          padding: "7px 10px",
+          background: isWaitingForInput ? "rgba(0,30,16,0.92)" : "#060003",
+          borderTop: `1px solid ${isWaitingForInput ? "rgba(52,211,153,0.5)" : BORDER}`,
         }}
       >
         <span
           style={{
-            color: isWaitingForInput ? "#34d399" : "rgba(255,255,255,0.2)",
+            color: isWaitingForInput ? "#34d399" : "rgba(255,255,255,0.25)",
             fontFamily: "Consolas",
             fontWeight: 700,
             fontSize: 13,
@@ -213,13 +224,13 @@ export default function OutputPane({
               handleSubmitInput();
             }
           }}
-          disabled={!running && !isWaitingForInput}
+          disabled={!canInput}
           placeholder={
             isWaitingForInput
-              ? "Inserisci il valore richiesto e premi Invio..."
+              ? "Digita il valore per il programma e premi Invio..."
               : running
-              ? "Invia input al processo (stdin)..."
-              : "Pronto per l'esecuzione"
+              ? "Invia input al programma e premi Invio..."
+              : "Premi ▶ Esegui (F5) per avviare il programma"
           }
           style={{
             flex: 1,
@@ -232,22 +243,41 @@ export default function OutputPane({
             caretColor: ACCENT,
           }}
         />
-        {running && (
-          <button
-            onClick={handleSubmitInput}
-            style={{
-              padding: "3px 10px",
-              borderRadius: 5,
-              border: `1px solid ${isWaitingForInput ? "#34d399" : BORDER}`,
-              background: isWaitingForInput ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.05)",
-              color: isWaitingForInput ? "#34d399" : "rgba(255,255,255,0.5)",
-              cursor: "pointer",
-              fontSize: 11,
-              fontWeight: 600,
-            }}
-          >
-            Invia
-          </button>
+        {canInput && (
+          <>
+            <button
+              onClick={handleSubmitInput}
+              style={{
+                padding: "3px 10px",
+                borderRadius: 5,
+                border: `1px solid ${isWaitingForInput ? "#34d399" : BORDER}`,
+                background: isWaitingForInput ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.05)",
+                color: isWaitingForInput ? "#34d399" : "rgba(255,255,255,0.6)",
+                cursor: "pointer",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              Invia ↵
+            </button>
+            {onCloseInput && (
+              <button
+                onClick={onCloseInput}
+                title="Fine input (EOF / Ctrl+Z)"
+                style={{
+                  padding: "3px 8px",
+                  borderRadius: 5,
+                  border: `1px solid ${BORDER}`,
+                  background: "rgba(255,255,255,0.04)",
+                  color: "rgba(255,255,255,0.5)",
+                  cursor: "pointer",
+                  fontSize: 10,
+                }}
+              >
+                EOF
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

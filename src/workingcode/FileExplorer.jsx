@@ -15,9 +15,9 @@ import {
 const ACCENT = "#ff2d55";
 const BORDER = "rgba(255,45,85,0.18)";
 
-function getFileIcon(name, isDir) {
-  if (isDir) return "📁";
-  const ext = name.split(".").pop().toLowerCase();
+export function getFileIcon(name, isDir, isOpen = false) {
+  if (isDir) return isOpen ? "📂" : "📁";
+  const ext = (name || "").split(".").pop().toLowerCase();
   switch (ext) {
     case "c":
     case "h":
@@ -56,52 +56,64 @@ export default function FileExplorer({
   onCloseTab,
   onSelectTab,
   activeTabId,
+  onWorkspaceChange,
 }) {
-  const [isDesktop, setIsDesktop] = useState(false);
-  const [wsRoot, setWsRoot] = useState(null);
-  const [items, setItems] = useState([]);
+  const isDesktop = isDesktopApp();
+  const [ws, setWs] = useState(null); // { name, path } | null
+  const [tree, setTree] = useState({}); // { [relDir]: Entry[] }
+  const [expanded, setExpanded] = useState(() => new Set([""]));
   const [recents, setRecents] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [expandedDirs, setExpandedDirs] = useState(new Set([""]));
+  const [creating, setCreating] = useState(null); // { parentRel, isDir } | null
+  const [createName, setCreateName] = useState("");
 
-  // Load workspace state
+  const loadDir = useCallback(async (rel) => {
+    const list = await wsList(rel);
+    setTree((prev) => ({ ...prev, [rel]: Array.isArray(list) ? list : [] }));
+  }, []);
+
   const refresh = useCallback(async () => {
-    if (!isDesktopApp()) return;
-    setLoading(true);
+    if (!isDesktop) return;
     setError("");
     try {
       const info = await wsInfo();
-      setWsRoot(info.root || null);
-      if (info.root) {
-        const rootItems = await wsList("");
-        setItems(rootItems);
+      if (info && info.path) {
+        setWs(info);
+        onWorkspaceChange?.(info);
+        const dirs = Array.from(expanded);
+        if (!dirs.includes("")) dirs.push("");
+        const nextTree = {};
+        for (const d of dirs) {
+          try {
+            nextTree[d] = await wsList(d);
+          } catch {
+            nextTree[d] = [];
+          }
+        }
+        setTree(nextTree);
       } else {
-        setItems([]);
+        setWs(null);
+        onWorkspaceChange?.(null);
+        setTree({});
         const rec = await wsRecent();
-        setRecents(rec || []);
+        setRecents(Array.isArray(rec) ? rec : []);
       }
     } catch (e) {
       setError(e.message || String(e));
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  }, [isDesktop, expanded, onWorkspaceChange]);
 
   useEffect(() => {
-    const desktop = isDesktopApp();
-    setIsDesktop(desktop);
-    if (desktop) {
-      refresh();
-    }
-  }, [refresh]);
+    refresh();
+  }, [isDesktop]);
 
   const handleOpenFolder = async () => {
     setError("");
     try {
       const res = await wsOpen();
       if (res && res.path) {
-        refresh();
+        setExpanded(new Set([""]));
+        await refresh();
       }
     } catch (e) {
       setError("Errore apertura cartella: " + (e.message || e));
@@ -109,9 +121,11 @@ export default function FileExplorer({
   };
 
   const handleReopen = async (path) => {
+    setError("");
     try {
       await wsReopen(path);
-      refresh();
+      setExpanded(new Set([""]));
+      await refresh();
     } catch (e) {
       setError("Impossibile aprire: " + (e.message || e));
     }
@@ -120,61 +134,143 @@ export default function FileExplorer({
   const handleCloseWorkspace = async () => {
     try {
       await wsClose();
-      refresh();
+      setExpanded(new Set([""]));
+      await refresh();
     } catch (e) {
       setError(e.message || String(e));
     }
   };
 
-  const handleCreateFile = async () => {
-    const name = window.prompt("Nome del nuovo file (es. main.c):");
-    if (!name || !name.trim()) return;
-    try {
-      await wsCreate(name.trim(), false);
-      await refresh();
-      onOpenFile?.(name.trim());
-    } catch (e) {
-      alert("Errore creazione file: " + (e.message || e));
+  const toggleDir = async (rel) => {
+    const next = new Set(expanded);
+    if (next.has(rel)) {
+      next.delete(rel);
+      setExpanded(next);
+    } else {
+      next.add(rel);
+      setExpanded(next);
+      try {
+        await loadDir(rel);
+      } catch (e) {
+        setError(e.message || String(e));
+      }
     }
   };
 
-  const handleCreateFolder = async () => {
-    const name = window.prompt("Nome della nuova cartella:");
-    if (!name || !name.trim()) return;
+  const startCreate = (parentRel, isDir) => {
+    setCreating({ parentRel, isDir });
+    setCreateName(isDir ? "nuova_cartella" : "nuovo.c");
+  };
+
+  const submitCreate = async () => {
+    if (!creating) return;
+    const name = createName.trim();
+    const { parentRel, isDir } = creating;
+    setCreating(null);
+    setCreateName("");
+    if (!name) return;
+    const rel = parentRel ? `${parentRel}/${name}` : name;
     try {
-      await wsCreate(name.trim(), true);
-      refresh();
+      await wsCreate(rel, isDir);
+      await refresh();
+      if (!isDir) onOpenFile?.(rel);
     } catch (e) {
-      alert("Errore creazione cartella: " + (e.message || e));
+      setError(e.message || String(e));
     }
   };
 
   const handleRename = async (e, rel) => {
     e.stopPropagation();
-    const newName = window.prompt("Rinomina in:", rel.split(/[\\/]/).pop());
-    if (!newName || !newName.trim()) return;
+    const oldBase = rel.split("/").pop();
+    const newName = window.prompt("Rinomina in:", oldBase);
+    if (!newName || !newName.trim() || newName.trim() === oldBase) return;
     const parent = rel.includes("/") ? rel.substring(0, rel.lastIndexOf("/")) : "";
     const target = parent ? `${parent}/${newName.trim()}` : newName.trim();
     try {
       await wsRename(rel, target);
-      refresh();
+      await refresh();
     } catch (err) {
-      alert("Errore rinomina: " + (err.message || err));
+      setError(err.message || String(err));
     }
   };
 
   const handleDelete = async (e, rel) => {
     e.stopPropagation();
-    if (!window.confirm(`Spostare "${rel}" nel Cestino di Windows?`)) return;
+    if (!window.confirm(`Spostare "${rel}" nel Cestino?`)) return;
     try {
       await wsDelete(rel);
-      refresh();
+      await refresh();
     } catch (err) {
-      alert("Errore eliminazione: " + (err.message || err));
+      setError(err.message || String(err));
     }
   };
 
-  const folderName = wsRoot ? wsRoot.split(/[\\/]/).filter(Boolean).pop() : null;
+  const renderNodes = (parentRel, depth) => {
+    const entries = tree[parentRel] || [];
+    return entries.map((item) => {
+      const rel = parentRel ? `${parentRel}/${item.name}` : item.name;
+      const isDir = !!item.is_dir;
+      const isOpen = isDir && expanded.has(rel);
+      const isSelected = !isDir && activeFileRel === rel;
+      return (
+        <div key={rel}>
+          <div
+            onClick={() => (isDir ? toggleDir(rel) : onOpenFile?.(rel))}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: `5px 10px 5px ${14 + depth * 14}px`,
+              cursor: "pointer",
+              background: isSelected ? "rgba(255,45,85,0.16)" : "transparent",
+              borderLeft: isSelected ? `2px solid ${ACCENT}` : "2px solid transparent",
+              color: isSelected ? "#ffffff" : "rgba(255,255,255,0.8)",
+              fontSize: 12,
+            }}
+            onMouseEnter={(e) => {
+              if (!isSelected) e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+            }}
+            onMouseLeave={(e) => {
+              if (!isSelected) e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <span style={{ fontSize: 12 }}>{getFileIcon(item.name, isDir, isOpen)}</span>
+            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {item.name}
+            </span>
+            {isDir && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isOpen) toggleDir(rel);
+                  startCreate(rel, false);
+                }}
+                title="Nuovo file qui"
+                style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 10, padding: 2 }}
+              >
+                +
+              </button>
+            )}
+            <button
+              onClick={(e) => handleRename(e, rel)}
+              title="Rinomina"
+              style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 10, padding: 2 }}
+            >
+              ✏️
+            </button>
+            <button
+              onClick={(e) => handleDelete(e, rel)}
+              title="Sposta nel Cestino"
+              style={{ background: "transparent", border: "none", color: "#f87171", cursor: "pointer", fontSize: 10, padding: 2 }}
+            >
+              🗑
+            </button>
+          </div>
+          {isOpen && renderNodes(rel, depth + 1)}
+        </div>
+      );
+    });
+  };
 
   return (
     <div
@@ -190,7 +286,7 @@ export default function FileExplorer({
         overflow: "hidden",
       }}
     >
-      {/* ── Explorer Header ── */}
+      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -201,77 +297,21 @@ export default function FileExplorer({
           background: "rgba(255,45,85,0.03)",
         }}
       >
-        <span
-          style={{
-            fontWeight: 700,
-            letterSpacing: 0.5,
-            color: "rgba(255,255,255,0.85)",
-            fontSize: 11,
-            textTransform: "uppercase",
-          }}
-        >
+        <span style={{ fontWeight: 700, letterSpacing: 0.5, color: "rgba(255,255,255,0.85)", fontSize: 11, textTransform: "uppercase" }}>
           Esplora Risorse
         </span>
-        {isDesktop && wsRoot && (
+        {isDesktop && ws && (
           <div style={{ display: "flex", gap: 4 }}>
-            <button
-              onClick={handleCreateFile}
-              title="Nuovo File"
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "rgba(255,255,255,0.6)",
-                cursor: "pointer",
-                padding: "2px 4px",
-                borderRadius: 4,
-                fontSize: 13,
-              }}
-            >
+            <button onClick={() => startCreate("", false)} title="Nuovo File" style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: "2px 4px", fontSize: 12 }}>
               📄+
             </button>
-            <button
-              onClick={handleCreateFolder}
-              title="Nuova Cartella"
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "rgba(255,255,255,0.6)",
-                cursor: "pointer",
-                padding: "2px 4px",
-                borderRadius: 4,
-                fontSize: 13,
-              }}
-            >
+            <button onClick={() => startCreate("", true)} title="Nuova Cartella" style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: "2px 4px", fontSize: 12 }}>
               📁+
             </button>
-            <button
-              onClick={refresh}
-              title="Aggiorna"
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "rgba(255,255,255,0.6)",
-                cursor: "pointer",
-                padding: "2px 4px",
-                borderRadius: 4,
-                fontSize: 13,
-              }}
-            >
+            <button onClick={refresh} title="Aggiorna" style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: "2px 4px", fontSize: 12 }}>
               🔄
             </button>
-            <button
-              onClick={handleCloseWorkspace}
-              title="Chiudi Cartella"
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "rgba(255,255,255,0.4)",
-                cursor: "pointer",
-                padding: "2px 4px",
-                borderRadius: 4,
-                fontSize: 13,
-              }}
-            >
+            <button onClick={handleCloseWorkspace} title="Chiudi Cartella" style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", padding: "2px 4px", fontSize: 12 }}>
               ✕
             </button>
           </div>
@@ -280,176 +320,139 @@ export default function FileExplorer({
 
       {error && (
         <div
-          style={{
-            padding: "8px 12px",
-            background: "rgba(239,68,68,0.1)",
-            borderBottom: "1px solid #ef4444",
-            color: "#fca5a5",
-            fontSize: 11,
-          }}
+          onClick={() => setError("")}
+          style={{ padding: "7px 12px", background: "rgba(239,68,68,0.12)", borderBottom: "1px solid #ef4444", color: "#fca5a5", fontSize: 11, cursor: "pointer" }}
         >
           {error}
         </div>
       )}
 
-      {/* ── Content Area ── */}
+      {creating && (
+        <div style={{ padding: "8px 10px", background: "#140007", borderBottom: `1px solid ${BORDER}`, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 10, color: ACCENT, fontWeight: 700 }}>
+            {creating.isDir ? "NUOVA CARTELLA" : "NUOVO FILE"} {creating.parentRel ? `in ${creating.parentRel}` : ""}
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            <input
+              autoFocus
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitCreate();
+                if (e.key === "Escape") setCreating(null);
+              }}
+              style={{ flex: 1, padding: "4px 6px", borderRadius: 5, border: `1px solid ${BORDER}`, background: "#090003", color: "#fff", fontSize: 12, outline: "none" }}
+            />
+            <button onClick={submitCreate} style={{ padding: "4px 8px", borderRadius: 5, border: "none", background: ACCENT, color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ flex: 1, overflow: "auto", padding: "6px 0" }}>
-        {/* If on desktop with workspace open */}
-        {isDesktop && wsRoot ? (
-          <div>
-            {/* Root folder item */}
+        {/* Open Editors list */}
+        <div style={{ padding: "4px 12px", fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: 1, fontWeight: 700 }}>
+          EDITOR APERTI ({openTabs.length})
+        </div>
+        {openTabs.map((tab) => {
+          const isSel = activeTabId === tab.id;
+          return (
             <div
+              key={tab.id}
+              onClick={() => onSelectTab?.(tab.id)}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                padding: "5px 12px",
-                fontWeight: 700,
-                color: ACCENT,
-                fontSize: 11,
-                letterSpacing: 0.5,
+                padding: "4px 12px 4px 18px",
+                cursor: "pointer",
+                background: isSel ? "rgba(255,45,85,0.14)" : "transparent",
+                color: isSel ? "#fff" : "rgba(255,255,255,0.65)",
+                fontSize: 12,
               }}
-              title={wsRoot}
+            >
+              <span>{getFileIcon(tab.name, false)}</span>
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {!tab.saved && <span style={{ color: ACCENT }}>● </span>}
+                {tab.name}
+              </span>
+              {openTabs.length > 1 && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCloseTab?.(tab.id);
+                  }}
+                  style={{ fontSize: 13, opacity: 0.5, padding: "0 3px" }}
+                >
+                  ×
+                </span>
+              )}
+            </div>
+          );
+        })}
+
+        <div style={{ height: 1, background: BORDER, margin: "8px 0" }} />
+
+        {/* Workspace folder tree */}
+        {isDesktop && ws ? (
+          <div>
+            <div
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", fontWeight: 700, color: ACCENT, fontSize: 11 }}
+              title={ws.path}
             >
               <span>📂</span>
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {folderName}
+                {ws.name}
               </span>
             </div>
-
-            {/* File List */}
-            {items.length === 0 ? (
-              <div style={{ padding: "12px 16px", color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>
+            {(tree[""] || []).length === 0 ? (
+              <div style={{ padding: "10px 16px", color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>
                 Cartella vuota. Clicca 📄+ per creare un file.
               </div>
             ) : (
-              items.map((item) => {
-                const isSelected = activeFileRel === item.rel;
-                return (
-                  <div
-                    key={item.rel}
-                    onClick={() => {
-                      if (!item.is_dir) onOpenFile?.(item.rel);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "5px 12px 5px 24px",
-                      cursor: item.is_dir ? "default" : "pointer",
-                      background: isSelected ? "rgba(255,45,85,0.15)" : "transparent",
-                      borderLeft: isSelected ? `2px solid ${ACCENT}` : "2px solid transparent",
-                      color: isSelected ? "#ffffff" : "rgba(255,255,255,0.75)",
-                      fontSize: 12,
-                      transition: "background 0.15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected) e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected) e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    <span>{getFileIcon(item.name, item.is_dir)}</span>
-                    <span
-                      style={{
-                        flex: 1,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {item.name}
-                    </span>
-                    <div className="file-actions" style={{ display: "flex", gap: 2, opacity: 0.6 }}>
-                      <button
-                        onClick={(e) => handleRename(e, item.rel)}
-                        title="Rinomina"
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          color: "inherit",
-                          cursor: "pointer",
-                          fontSize: 10,
-                          padding: 2,
-                        }}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={(e) => handleDelete(e, item.rel)}
-                        title="Elimina nel Cestino"
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          color: "#ef4444",
-                          cursor: "pointer",
-                          fontSize: 10,
-                          padding: 2,
-                        }}
-                      >
-                        🗑
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
+              renderNodes("", 0)
             )}
           </div>
-        ) : isDesktop && !wsRoot ? (
-          /* Desktop with no folder open */
-          <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
-              Nessuna cartella aperta. Apri una cartella locale per lavorare con più file e compilare direttamente da disco.
+        ) : isDesktop ? (
+          <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ color: "rgba(255,255,255,0.45)", lineHeight: 1.5, fontSize: 11 }}>
+              Puoi programmare subito negli editor aperti oppure aprire una cartella del PC.
             </div>
-
             <button
               onClick={handleOpenFolder}
               style={{
-                padding: "8px 14px",
-                borderRadius: 8,
+                padding: "8px 12px",
+                borderRadius: 7,
                 border: "none",
                 background: `linear-gradient(135deg, ${ACCENT}, #ff0020)`,
                 color: "#fff",
                 fontWeight: 600,
                 cursor: "pointer",
-                boxShadow: `0 0 12px ${ACCENT}44`,
+                fontSize: 12,
               }}
             >
               📂 Apri Cartella...
             </button>
-
             {recents.length > 0 && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", letterSpacing: 1, marginBottom: 6 }}>
-                  RECENTI
+              <div style={{ marginTop: 4 }}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: 1, marginBottom: 6 }}>
+                  CARTELLE RECENTI
                 </div>
-                {recents.map((p) => {
-                  const name = p.split(/[\\/]/).filter(Boolean).pop();
+                {recents.map((r) => {
+                  const path = typeof r === "string" ? r : r.path;
+                  const name = typeof r === "string" ? r.split(/[\\/]/).filter(Boolean).pop() : r.name;
+                  if (!path) return null;
                   return (
                     <div
-                      key={p}
-                      onClick={() => handleReopen(p)}
-                      style={{
-                        padding: "6px 8px",
-                        borderRadius: 6,
-                        cursor: "pointer",
-                        background: "rgba(255,255,255,0.03)",
-                        marginBottom: 4,
-                      }}
-                      title={p}
+                      key={path}
+                      onClick={() => handleReopen(path)}
+                      style={{ padding: "6px 8px", borderRadius: 6, cursor: "pointer", background: "rgba(255,255,255,0.03)", marginBottom: 4 }}
+                      title={path}
                     >
                       <div style={{ fontWeight: 600, color: "#fff" }}>📁 {name}</div>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: "rgba(255,255,255,0.3)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {p}
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {path}
                       </div>
                     </div>
                   );
@@ -458,65 +461,8 @@ export default function FileExplorer({
             )}
           </div>
         ) : (
-          /* Web Mode: show open tabs */
-          <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div
-              style={{
-                padding: "10px 12px",
-                borderRadius: 8,
-                background: "rgba(59,130,246,0.08)",
-                border: "1px solid rgba(59,130,246,0.25)",
-                color: "#93c5fd",
-                fontSize: 11,
-                lineHeight: 1.5,
-              }}
-            >
-              🌐 <strong>Modalità Web</strong>
-              <div style={{ marginTop: 4, color: "rgba(255,255,255,0.5)" }}>
-                Scarica <strong>WorkfyStation per PC</strong> per aprire cartelle locali del tuo computer e usare il terminale PowerShell nativo!
-              </div>
-            </div>
-
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", letterSpacing: 1 }}>
-              FILE APERTI
-            </div>
-
-            {openTabs.map((tab) => {
-              const isSelected = activeTabId === tab.id;
-              return (
-                <div
-                  key={tab.id}
-                  onClick={() => onSelectTab?.(tab.id)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "6px 10px",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    background: isSelected ? "rgba(255,45,85,0.15)" : "rgba(255,255,255,0.03)",
-                    border: isSelected ? `1px solid ${ACCENT}66` : "1px solid transparent",
-                    color: isSelected ? "#fff" : "rgba(255,255,255,0.6)",
-                  }}
-                >
-                  <span>{getFileIcon(tab.name, false)}</span>
-                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {!tab.saved && "● "}{tab.name}
-                  </span>
-                  {openTabs.length > 1 && (
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCloseTab?.(tab.id);
-                      }}
-                      style={{ fontSize: 14, opacity: 0.5, padding: "0 4px" }}
-                    >
-                      ×
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+          <div style={{ padding: "8px 14px", color: "rgba(255,255,255,0.45)", fontSize: 11, lineHeight: 1.5 }}>
+            I tuoi file sono salvati automaticamente nel browser. Usa il menu <strong>+ Nuovo File</strong> in alto per aggiungere altre schede.
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@ const GCC_RE = /^(?:.*[\\/])?([^\\/:\n]+):(\d+):(?:(\d+):)?\s*(fatal error|error
 const PY_RE = /^\s*File "(?:.*[\\/])?([^\\/"]+)", line (\d+)/;
 
 /** Estrae gli errori/warning da un testo di output. */
-export function parseDiagnostics(text) {
+export function parseDiagnostics(text, lineOffset = 0) {
   const out = [];
   const lines = text.split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -13,7 +13,7 @@ export function parseDiagnostics(text) {
     if (m) {
       out.push({
         file: m[1],
-        line: parseInt(m[2], 10),
+        line: Math.max(1, parseInt(m[2], 10) - lineOffset),
         col: m[3] ? parseInt(m[3], 10) : 1,
         severity: m[4] === "warning" ? "warning" : m[4] === "note" ? "info" : "error",
         message: m[5],
@@ -24,7 +24,13 @@ export function parseDiagnostics(text) {
     if (p) {
       // il messaggio dell'errore Python è nell'ultima riga del traceback
       const msg = lines.slice(i + 1).find((l) => /^\w*(Error|Exception)\b/.test(l.trim())) || "Errore";
-      out.push({ file: p[1], line: parseInt(p[2], 10), col: 1, severity: "error", message: msg.trim() });
+      out.push({
+        file: p[1],
+        line: Math.max(1, parseInt(p[2], 10) - lineOffset),
+        col: 1,
+        severity: "error",
+        message: msg.trim(),
+      });
     }
   }
   return out.filter((d) => d.severity !== "info");

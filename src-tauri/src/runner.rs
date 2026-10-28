@@ -297,7 +297,7 @@ fn compile(app: &AppHandle, id: u64, tool: &str, args: &[String], dir: &Path) ->
     quiet(&mut cmd);
     let mut child = cmd.spawn().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            format!("Compilatore '{tool}' non trovato nel PATH. Installalo (es. MinGW-w64 / MSYS2 / JDK) oppure usa l'esecuzione Cloud.")
+            "not-found".to_string()
         } else {
             e.to_string()
         }
@@ -348,6 +348,11 @@ fn orchestrate(app: AppHandle, spec: RunSpec, dir: PathBuf, root: Option<PathBuf
                 cleanup(&dir);
                 return;
             }
+            Err(e) if e == "not-found" => {
+                emit(&app, id, "exit", "not-found".into(), Some(127));
+                cleanup(&dir);
+                return;
+            }
             Err(e) => {
                 emit(&app, id, "error", e, None);
                 emit(&app, id, "exit", "compile-error".into(), Some(127));
@@ -371,13 +376,13 @@ fn orchestrate(app: AppHandle, spec: RunSpec, dir: PathBuf, root: Option<PathBuf
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            emit(&app, id, "exit", "not-found".into(), Some(127));
+            cleanup(&dir);
+            return;
+        }
         Err(e) => {
-            let msg = if e.kind() == std::io::ErrorKind::NotFound {
-                format!("Programma '{}' non trovato nel PATH.", plan.run.0)
-            } else {
-                e.to_string()
-            };
-            emit(&app, id, "error", msg, None);
+            emit(&app, id, "error", e.to_string(), None);
             emit(&app, id, "exit", "spawn".into(), Some(127));
             cleanup(&dir);
             return;

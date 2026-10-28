@@ -14,12 +14,16 @@ export default function QuickOpen({ isOpen, onClose, onSelectFile, openTabs = []
     if (isOpen) {
       setQuery("");
       setSelectedIdx(0);
+      const tabNames = openTabs.map((t) => t.relPath || t.name);
       if (isDesktopApp()) {
         wsFiles()
-          .then((files) => setAllFiles(files || []))
-          .catch(() => setAllFiles([]));
+          .then((files) => {
+            const merged = Array.from(new Set([...tabNames, ...(files || [])]));
+            setAllFiles(merged);
+          })
+          .catch(() => setAllFiles(tabNames));
       } else {
-        setAllFiles(openTabs.map((t) => t.name));
+        setAllFiles(tabNames);
       }
       setTimeout(() => inputRef.current?.focus(), 30);
     }

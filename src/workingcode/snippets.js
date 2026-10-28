@@ -14,7 +14,7 @@ export const LANGUAGES = [
     template: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}\n',
   },
   {
-    id: "python", label: "Python", ext: "py", compiler: "cpython",
+    id: "python", label: "Python", ext: "py", compiler: "cpython-3.12.7",
     template: 'def main():\n    print("Hello, World!")\n\n\nif __name__ == "__main__":\n    main()\n',
   },
 ];
