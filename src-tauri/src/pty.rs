@@ -1,7 +1,7 @@
 //! Terminale integrato reale (pseudo-console), come quello di Visual Studio Code.
-//! Sulla webview gira xterm.js; qui c'è PowerShell collegato tramite ConPTY.
+//! Sulla webview gira xterm.js; su Windows usa PowerShell (ConPTY), su macOS/Linux usa zsh/bash (PTY Unix).
 
-use crate::{home_dir, runner::take_utf8, AppState};
+use crate::{default_shell_path, enriched_path, home_dir, runner::take_utf8, AppState};
 use portable_pty::{native_pty_system, Child as PtyChild, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
 use std::io::{Read, Write};
@@ -65,10 +65,21 @@ pub async fn pty_open(
         c.args(["-NoLogo", "-NoProfile"]);
         c
     } else {
-        CommandBuilder::new(std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string()))
+        let shell = default_shell_path();
+        let mut c = CommandBuilder::new(&shell);
+        // Avvia come login shell (-l) su macOS/Linux per caricare ~/.zprofile, ~/.zshrc e il PATH utente.
+        if shell.ends_with("zsh") || shell.ends_with("bash") || shell.ends_with("fish") {
+            c.arg("-l");
+        }
+        c.env("PATH", enriched_path());
+        if std::env::var_os("LANG").is_none() {
+            c.env("LANG", "en_US.UTF-8");
+        }
+        c
     };
     cmd.cwd(&cwd);
     cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
     cmd.env("WORKFYSTATION_TERMINAL", "1");
 
     let child = pair.slave.spawn_command(cmd).map_err(|e| format!("Impossibile avviare la shell: {e}"))?;

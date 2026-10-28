@@ -1,0 +1,86 @@
+name: Build & Release macOS (.dmg)
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "src/**"
+      - "src-tauri/**"
+      - "package.json"
+      - ".github/workflows/macos-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build WorkfyStation macOS Universal (.dmg)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Setup Rust toolchain (Apple Silicon + Intel Universal)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri macOS Universal (.dmg & .app)
+        env:
+          CI: true
+        run: |
+          npx tauri build --target universal-apple-darwin --bundles dmg,app --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Prepare release artifacts
+        run: |
+          DMG_PATH=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -n 1)
+          if [ -z "$DMG_PATH" ]; then
+            echo "Errore: file .dmg non trovato!"
+            exit 1
+          fi
+          cp "$DMG_PATH" WorkfyStation.dmg
+          ls -lh WorkfyStation.dmg
+
+      - name: Upload Artifact to Workflow Run
+        uses: actions/upload-artifact@v4
+        with:
+          name: WorkfyStation-macOS-Universal-DMG
+          path: WorkfyStation.dmg
+
+      - name: Publish to GitHub Releases (latest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v1.1.0"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" WorkfyStation.dmg --clobber
+            if [ -f "public/WorkfyStation-Setup.exe" ]; then
+              gh release upload "$TAG" public/WorkfyStation-Setup.exe --clobber
+            fi
+          else
+            ASSETS=("WorkfyStation.dmg")
+            if [ -f "public/WorkfyStation-Setup.exe" ]; then
+              ASSETS+=("public/WorkfyStation-Setup.exe")
+            fi
+            gh release create "$TAG" "${ASSETS[@]}" \
+              --title "WorkfyStation $TAG (Windows & macOS)" \
+              --notes "Installer ufficiali di WorkfyStation per **Windows (.exe)** e **macOS Universal (.dmg — Apple Silicon M1/M2/M3/M4 & Intel)**." \
+              --latest
+          fi

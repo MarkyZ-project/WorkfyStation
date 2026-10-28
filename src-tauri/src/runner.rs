@@ -157,7 +157,11 @@ fn prepare(spec: &RunSpec, dir: &Path) -> Result<Plan, String> {
                 (true, false) => "g++",
                 (true, true) => "clang++",
             };
-            let (libs, opts): (Vec<&String>, Vec<&String>) = spec.flags.iter().partition(|f| f.starts_with("-l"));
+            let (libs, opts): (Vec<&String>, Vec<&String>) = spec
+                .flags
+                .iter()
+                .filter(|f| !(cfg!(target_os = "macos") && f.as_str() == "-static"))
+                .partition(|f| f.starts_with("-l"));
             let mut args: Vec<String> = opts.into_iter().cloned().collect();
             args.extend(["-include".into(), s(&hdr), s(&src), "-o".into(), s(&dir.join(EXE_NAME))]);
             args.extend(libs.into_iter().cloned());
@@ -186,9 +190,10 @@ fn prepare(spec: &RunSpec, dir: &Path) -> Result<Plan, String> {
             let file = clean_filename(&spec.filename, &[".py"], "main.py");
             let src = dir.join(&file);
             fs::write(&src, &spec.code).map_err(|e| e.to_string())?;
+            let py_bin = if cfg!(windows) { "python" } else { "python3" };
             Ok(Plan {
                 compile: None,
-                run: ("python".into(), vec!["-u".into(), s(&src)]),
+                run: (py_bin.into(), vec!["-u".into(), s(&src)]),
                 env: vec![("PYTHONIOENCODING".into(), "utf-8".into()), ("PYTHONUTF8".into(), "1".into())],
             })
         }

@@ -137,34 +137,61 @@ export default function LandingPage({ onEnter }) {
           🚀 Entra in WorkfyStation
         </button>
 
-        {/* Download Desktop App Button */}
-        <a
-          href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
-          download="WorkfyStation-Setup.exe"
-          className="landing-btn"
-          style={{
-            position: "relative", zIndex: 2,
-            display: "inline-flex", alignItems: "center", gap: 10,
-            marginTop: 18,
-            padding: "14px 34px", borderRadius: 14,
-            border: "1.5px solid rgba(255,255,255,0.28)",
-            background: "rgba(255,255,255,0.1)",
-            backdropFilter: "blur(14px)",
-            WebkitBackdropFilter: "blur(14px)",
-            color: "#ffffff",
-            fontSize: 15, fontWeight: 600, cursor: "pointer",
-            textDecoration: "none",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-            transition: "all .25s ease", letterSpacing: 0.3,
-          }}
-        >
-          {/* Windows Logo Icon */}
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.951-1.801" />
-          </svg>
-          Installa l'app su PC
-          <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.15)", fontWeight: 500 }}>.exe ~8MB</span>
-        </a>
+        {/* Download Desktop App Buttons (Windows & macOS) */}
+        <div style={{ position: "relative", zIndex: 2, display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginTop: 18 }}>
+          <a
+            href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
+            download="WorkfyStation-Setup.exe"
+            className="landing-btn"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 10,
+              padding: "14px 28px", borderRadius: 14,
+              border: "1.5px solid rgba(255,255,255,0.28)",
+              background: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              color: "#ffffff",
+              fontSize: 15, fontWeight: 600, cursor: "pointer",
+              textDecoration: "none",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+              transition: "all .25s ease", letterSpacing: 0.3,
+            }}
+          >
+            {/* Windows Logo Icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.951-1.801" />
+            </svg>
+            Scarica per Windows
+            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.15)", fontWeight: 500 }}>.exe</span>
+          </a>
+
+          <a
+            href="https://github.com/MarkyZ-project/WorkfyStation/releases/latest/download/WorkfyStation.dmg"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="landing-btn"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 10,
+              padding: "14px 28px", borderRadius: 14,
+              border: "1.5px solid rgba(255,255,255,0.28)",
+              background: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              color: "#ffffff",
+              fontSize: 15, fontWeight: 600, cursor: "pointer",
+              textDecoration: "none",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+              transition: "all .25s ease", letterSpacing: 0.3,
+            }}
+          >
+            {/* Apple Logo Icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.96 6.33c.67-.81 1.12-1.94 1-3.08-.96.04-2.13.64-2.82 1.45-.61.7-.115 1.85-1.01 2.97 1.08.08 2.16-.53 2.83-1.34" />
+            </svg>
+            Scarica per macOS
+            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.15)", fontWeight: 500 }}>.dmg</span>
+          </a>
+        </div>
 
         {/* Scroll hint */}
         <div style={{ position: "absolute", bottom: 24, animation: "float 2s ease-in-out infinite", opacity: 0.4, fontSize: 22, zIndex: 2 }}>↓</div>
@@ -305,7 +332,7 @@ export default function LandingPage({ onEnter }) {
               className="landing-btn"
               style={{
                 display: "inline-flex", alignItems: "center", gap: 10,
-                padding: "16px 36px", borderRadius: 16,
+                padding: "16px 32px", borderRadius: 16,
                 border: "1.5px solid rgba(255,255,255,0.28)",
                 background: "rgba(255,255,255,0.08)",
                 backdropFilter: "blur(12px)",
@@ -317,7 +344,28 @@ export default function LandingPage({ onEnter }) {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.951-1.801" />
               </svg>
-              Installa l'app su PC (.exe)
+              Windows (.exe)
+            </a>
+            <a
+              href="https://github.com/MarkyZ-project/WorkfyStation/releases/latest/download/WorkfyStation.dmg"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="landing-btn"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 10,
+                padding: "16px 32px", borderRadius: 16,
+                border: "1.5px solid rgba(255,255,255,0.28)",
+                background: "rgba(255,255,255,0.08)",
+                backdropFilter: "blur(12px)",
+                color: "#ffffff", fontSize: 16, fontWeight: 600,
+                cursor: "pointer", textDecoration: "none",
+                transition: "all .3s",
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.96 6.33c.67-.81 1.12-1.94 1-3.08-.96.04-2.13.64-2.82 1.45-.61.7-.115 1.85-1.01 2.97 1.08.08 2.16-.53 2.83-1.34" />
+              </svg>
+              macOS (.dmg)
             </a>
           </div>
           <div style={{ marginTop: 18, fontSize: 12, color: "rgba(255,255,255,0.35)" }}>

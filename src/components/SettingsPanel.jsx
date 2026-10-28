@@ -425,11 +425,13 @@ export default function SettingsPanel({
                 <div style={{ fontSize: 28 }}>{isDesktop ? "💻" : "🌐"}</div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: c.text }}>
-                    {isDesktop ? "WorkfyStation Desktop (Windows)" : "WorkfyStation Web"}
+                    {isDesktop
+                      ? `WorkfyStation Desktop (${desktopInfo?.platform === "macos" ? "macOS" : "Windows"})`
+                      : "WorkfyStation Web"}
                   </div>
                   <div style={{ fontSize: 11, color: c.textMuted }}>
                     {isDesktop
-                      ? `Versione v${desktopInfo?.version || "1.1.0"} installata · Utente: ${desktopInfo?.username || "Windows"}`
+                      ? `Versione v${desktopInfo?.version || "1.1.0"} installata · Utente: ${desktopInfo?.username || "Utente"}`
                       : "Stai visualizzando l'applicazione tramite browser web."}
                   </div>
                 </div>
@@ -443,7 +445,7 @@ export default function SettingsPanel({
                 <div style={{ fontSize: 12, color: c.textMuted, marginBottom: 12, lineHeight: 1.5 }}>
                   {isDesktop
                     ? "Clicca sul pulsante per scaricare l'ultimo aggiornamento e installarlo automaticamente sopra a questa versione."
-                    : "Scarica l'applicazione desktop Windows per avere il terminale PowerShell reale e la suite completa offline."}
+                    : "Scarica l'applicazione desktop per Windows o macOS per avere il terminale nativo e la suite completa offline."}
                 </div>
 
                 {updateMsg && (
@@ -471,18 +473,33 @@ export default function SettingsPanel({
                   {updating ? "⏳ Aggiornamento in corso..." : "🔄 Aggiorna Applicazione Ora"}
                 </button>
 
-                <a
-                  href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
-                  download="WorkfyStation-Setup.exe"
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                    width: "100%", padding: "10px", borderRadius: 10,
-                    border: `1px solid ${c.border}`, background: "rgba(255,255,255,0.04)",
-                    color: c.text, fontSize: 12, textDecoration: "none", cursor: "pointer",
-                    boxSizing: "border-box",
-                  }}>
-                  📥 Scarica Setup Manuale (WorkfyStation-Setup.exe)
-                </a>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <a
+                    href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
+                    download="WorkfyStation-Setup.exe"
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                      width: "100%", padding: "10px", borderRadius: 10,
+                      border: `1px solid ${c.border}`, background: "rgba(255,255,255,0.04)",
+                      color: c.text, fontSize: 12, textDecoration: "none", cursor: "pointer",
+                      boxSizing: "border-box",
+                    }}>
+                    🪟 Scarica per Windows (WorkfyStation-Setup.exe)
+                  </a>
+                  <a
+                    href="https://github.com/MarkyZ-project/WorkfyStation/releases/latest/download/WorkfyStation.dmg"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                      width: "100%", padding: "10px", borderRadius: 10,
+                      border: `1px solid ${c.border}`, background: "rgba(255,255,255,0.04)",
+                      color: c.text, fontSize: 12, textDecoration: "none", cursor: "pointer",
+                      boxSizing: "border-box",
+                    }}>
+                    🍎 Scarica per macOS (WorkfyStation.dmg)
+                  </a>
+                </div>
               </div>
 
               {/* Guida all'aggiornamento */}

@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import {
   isDesktopApp,
+  getDesktopInfo,
   ptyOpen,
   ptyWrite,
   ptyResize,
@@ -14,8 +15,16 @@ import {
 
 const ACCENT = "#ff2d55";
 const BORDER = "rgba(255,45,85,0.18)";
+const MAC_DMG_URL = "https://github.com/MarkyZ-project/WorkfyStation/releases/latest/download/WorkfyStation.dmg";
 
-function TerminalInstance({ id, active, onTitleChange, onExit }) {
+function detectDefaultShell() {
+  if (typeof navigator !== "undefined" && /Mac|iPhone|iPod|iPad/i.test(navigator.platform || navigator.userAgent)) {
+    return "zsh";
+  }
+  return "powershell";
+}
+
+function TerminalInstance({ id, active, shellName, onTitleChange, onExit }) {
   const containerRef = useRef(null);
   const termRef = useRef(null);
   const fitAddonRef = useRef(null);
@@ -28,7 +37,7 @@ function TerminalInstance({ id, active, onTitleChange, onExit }) {
       cursorBlink: true,
       cursorStyle: "bar",
       fontSize: 13,
-      fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+      fontFamily: "'SF Mono', 'Menlo', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
       theme: {
         background: "#040002",
         foreground: "#f1f5f9",
@@ -67,7 +76,8 @@ function TerminalInstance({ id, active, onTitleChange, onExit }) {
     ptyOpen(id, term.cols || 80, term.rows || 24)
       .then((cwd) => {
         if (!isMounted) return;
-        if (cwd) onTitleChange?.(`powershell (${cwd.split(/[\\/]/).pop()})`);
+        const baseShell = shellName || detectDefaultShell();
+        if (cwd) onTitleChange?.(`${baseShell} (${cwd.split(/[\\/]/).filter(Boolean).pop() || "~"})`);
       })
       .catch((err) => {
         term.writeln(`\r\n\x1b[31m[Errore avvio PTY: ${err.message || err}]\x1b[0m\r\n`);
@@ -140,15 +150,27 @@ function TerminalInstance({ id, active, onTitleChange, onExit }) {
 
 export default function TerminalPane() {
   const isDesktop = isDesktopApp();
-  const [sessions, setSessions] = useState(() => [{ id: newId(), title: "powershell" }]);
+  const [shellName, setShellName] = useState(detectDefaultShell);
+  const [platform, setPlatform] = useState(() => (detectDefaultShell() === "zsh" ? "macos" : "windows"));
+  const [sessions, setSessions] = useState(() => [{ id: newId(), title: detectDefaultShell() }]);
   const [activeId, setActiveId] = useState(sessions[0]?.id);
+
+  useEffect(() => {
+    if (!isDesktop) return;
+    getDesktopInfo()
+      .then((info) => {
+        if (info?.shell) setShellName(info.shell);
+        if (info?.platform) setPlatform(info.platform);
+      })
+      .catch(() => {});
+  }, [isDesktop]);
 
   const addSession = () => {
     if (sessions.length >= 8) {
       alert("Massimo 8 sessioni contemporanee aperte.");
       return;
     }
-    const newSession = { id: newId(), title: `powershell ${sessions.length + 1}` };
+    const newSession = { id: newId(), title: `${shellName} ${sessions.length + 1}` };
     setSessions((s) => [...s, newSession]);
     setActiveId(newSession.id);
   };
@@ -156,7 +178,7 @@ export default function TerminalPane() {
   const closeSession = (id) => {
     const next = sessions.filter((s) => s.id !== id);
     if (next.length === 0) {
-      const fresh = { id: newId(), title: "powershell" };
+      const fresh = { id: newId(), title: shellName };
       setSessions([fresh]);
       setActiveId(fresh.id);
     } else {
@@ -183,35 +205,56 @@ export default function TerminalPane() {
       >
         <div style={{ fontSize: 36, marginBottom: 12 }}>⚡</div>
         <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: ACCENT }}>
-          Terminale PowerShell Windows Reale
+          Terminale Sistema Reale (PowerShell & Zsh macOS)
         </div>
         <div
           style={{
-            maxWidth: 480,
+            maxWidth: 500,
             color: "rgba(255,255,255,0.65)",
             fontSize: 13,
             lineHeight: 1.6,
             marginBottom: 20,
           }}
         >
-          Sei connesso via browser web. Il terminale con <strong>PowerShell nativo</strong> (con supporto a colori, ConPTY, script, git, compilatori locali) è attivo direttamente nell'applicazione desktop Windows.
+          Sei connesso via browser web. Il terminale nativo (<strong>PowerShell</strong> su Windows e{" "}
+          <strong>Zsh</strong> su macOS) è attivo nell'applicazione desktop per PC e Mac. Per eseguire programmi C, C++,
+          Java e Python qui nel browser, usa la scheda <strong>Console Esecuzione</strong>!
         </div>
-        <a
-          href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
-          download="WorkfyStation-Setup.exe"
-          style={{
-            padding: "10px 22px",
-            borderRadius: 8,
-            background: `linear-gradient(135deg, ${ACCENT}, #ff0020)`,
-            color: "#fff",
-            fontWeight: 600,
-            textDecoration: "none",
-            fontSize: 13,
-            boxShadow: `0 0 16px ${ACCENT}55`,
-          }}
-        >
-          📥 Scarica WorkfyStation per PC
-        </a>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+          <a
+            href={`${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`}
+            download="WorkfyStation-Setup.exe"
+            style={{
+              padding: "10px 20px",
+              borderRadius: 8,
+              background: `linear-gradient(135deg, ${ACCENT}, #ff0020)`,
+              color: "#fff",
+              fontWeight: 600,
+              textDecoration: "none",
+              fontSize: 13,
+              boxShadow: `0 0 16px ${ACCENT}55`,
+            }}
+          >
+            🪟 Scarica per Windows (.exe)
+          </a>
+          <a
+            href={MAC_DMG_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding: "10px 20px",
+              borderRadius: 8,
+              border: `1px solid ${BORDER}`,
+              background: "rgba(255,255,255,0.08)",
+              color: "#fff",
+              fontWeight: 600,
+              textDecoration: "none",
+              fontSize: 13,
+            }}
+          >
+            🍎 Scarica per macOS (.dmg)
+          </a>
+        </div>
       </div>
     );
   }
@@ -239,7 +282,7 @@ export default function TerminalPane() {
         }}
       >
         <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginRight: 8, fontWeight: 600 }}>
-          ⚡ POWERSHELL
+          {platform === "macos" ? `🍎 ${shellName.toUpperCase()}` : `⚡ ${shellName.toUpperCase()}`}
         </span>
 
         {sessions.map((s, idx) => (
@@ -259,7 +302,7 @@ export default function TerminalPane() {
               color: activeId === s.id ? "#ffffff" : "rgba(255,255,255,0.5)",
             }}
           >
-            <span>{s.title || `ps ${idx + 1}`}</span>
+            <span>{s.title || `${shellName} ${idx + 1}`}</span>
             <span
               onClick={(e) => {
                 e.stopPropagation();
@@ -275,7 +318,7 @@ export default function TerminalPane() {
 
         <button
           onClick={addSession}
-          title="Nuovo Terminale PowerShell"
+          title={`Nuovo Terminale (${shellName})`}
           style={{
             padding: "3px 8px",
             borderRadius: 6,
@@ -298,6 +341,7 @@ export default function TerminalPane() {
             key={s.id}
             id={s.id}
             active={activeId === s.id}
+            shellName={shellName}
             onTitleChange={(title) => {
               setSessions((prev) => prev.map((item) => (item.id === s.id ? { ...item, title } : item)));
             }}

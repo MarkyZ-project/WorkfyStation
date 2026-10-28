@@ -37,12 +37,86 @@ impl AppState {
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// Evita che compaia una finestra console nera quando si avviano processi di supporto.
+/// Restituisce un PATH arricchito con le directory standard di macOS/Linux (es. Homebrew, /usr/local/bin),
+/// indispensabile perché le app GUI su macOS avviate dal Finder hanno un PATH minimale.
+pub fn enriched_path() -> std::ffi::OsString {
+    let current = std::env::var_os("PATH").unwrap_or_default();
+    #[cfg(windows)]
+    {
+        current
+    }
+    #[cfg(not(windows))]
+    {
+        let mut paths: Vec<PathBuf> = std::env::split_paths(&current).collect();
+        let extras = [
+            "/opt/homebrew/bin",
+            "/opt/homebrew/sbin",
+            "/usr/local/bin",
+            "/usr/local/sbin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+        ];
+        for extra in extras {
+            let p = PathBuf::from(extra);
+            if p.is_dir() && !paths.iter().any(|existing| existing == &p) {
+                paths.push(p);
+            }
+        }
+        std::env::join_paths(paths).unwrap_or(current)
+    }
+}
+
+/// Individua la shell nativa predefinita del sistema operativo in modo sicuro.
+pub fn default_shell_path() -> String {
+    #[cfg(windows)]
+    {
+        "powershell.exe".to_string()
+    }
+    #[cfg(not(windows))]
+    {
+        if let Ok(sh) = std::env::var("SHELL") {
+            let trimmed = sh.trim();
+            let p = std::path::Path::new(trimmed);
+            if p.is_absolute() && p.is_file() {
+                return trimmed.to_string();
+            }
+        }
+        for candidate in ["/bin/zsh", "/bin/bash", "/bin/sh"] {
+            if std::path::Path::new(candidate).is_file() {
+                return candidate.to_string();
+            }
+        }
+        "/bin/sh".to_string()
+    }
+}
+
+pub fn default_shell_name() -> String {
+    #[cfg(windows)]
+    {
+        "powershell".to_string()
+    }
+    #[cfg(not(windows))]
+    {
+        let sh = default_shell_path();
+        std::path::Path::new(&sh)
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "zsh".to_string())
+    }
+}
+
+/// Evita che compaia una finestra console nera su Windows e assicura il PATH completo su macOS/Linux.
 pub fn quiet(cmd: &mut Command) -> &mut Command {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    #[cfg(not(windows))]
+    {
+        cmd.env("PATH", enriched_path());
     }
     cmd
 }
@@ -60,6 +134,7 @@ struct DesktopInfo {
     home: String,
     version: String,
     platform: String,
+    shell: String,
 }
 
 #[derive(Serialize, Default, Clone)]
@@ -83,6 +158,7 @@ fn get_desktop_info() -> DesktopInfo {
         home: workspace::clean(&home_dir()),
         version: env!("CARGO_PKG_VERSION").to_string(),
         platform: std::env::consts::OS.to_string(),
+        shell: default_shell_name(),
     }
 }
 
@@ -105,7 +181,23 @@ fn probe(name: &str, args: &[&str]) -> Tool {
     }
 }
 
-/// Elenca i compilatori/interpreti realmente installati sul PC.
+fn probe_python() -> Tool {
+    #[cfg(not(windows))]
+    {
+        let p3 = probe("python3", &["--version"]);
+        if p3.found {
+            return Tool { name: "python".to_string(), found: true, version: p3.version };
+        }
+    }
+    let p = probe("python", &["--version"]);
+    if p.found {
+        return p;
+    }
+    let p3 = probe("python3", &["--version"]);
+    Tool { name: "python".to_string(), found: p3.found, version: p3.version }
+}
+
+/// Elenca i compilatori/interpreti realmente installati sul PC/Mac.
 #[tauri::command]
 async fn toolchain_info() -> Vec<Tool> {
     tauri::async_runtime::spawn_blocking(|| {
@@ -116,7 +208,7 @@ async fn toolchain_info() -> Vec<Tool> {
             probe("clang++", &["--version"]),
             probe("javac", &["-version"]),
             probe("java", &["-version"]),
-            probe("python", &["--version"]),
+            probe_python(),
             probe("git", &["--version"]),
         ]
     })
