@@ -1,0 +1,11 @@
+{
+  "version": "1.1.0",
+  "notes": "WorkfyStation v1.1.0 — WorkingCode IDE stile Visual Studio, terminale PowerShell ConPTY reale, compilatore C/C++/Java/Python sicuro, aggiornamenti automatici firmati.",
+  "pub_date": "2026-10-28T15:49:18.301Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUOVBSVzdkOXZ0Rno0V2Q1NFV5TnZGaFJYZENPcXRIOENMcUZTYzlHcnRoUEwySld2K3V0T2h4S2dTREd6Q1BCMFZ2ZlJuOTcveEJOR2l1SGpaMDM2WEdNUkk4YlNzdXcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMjAyNDg5CWZpbGU6V29ya2Z5U3RhdGlvbl8xLjEuMF94NjQtc2V0dXAuZXhlCXZlcnNpb246MS4xLjAKcXpEZUxHbG9HeTltdmRzSVZTRXdONzcxNjYwYzNrVmpaWExrU3FlNHRlcWZUNHFNS1RBSG9OdEQ2ckxaSFBiQ2dFa0RjL1F2bVQ0cTBpOUFZeHNYQ2c9PQo=",
+      "url": "https://markyz-project.github.io/WorkfyStation/WorkfyStation-Setup.exe"
+    }
+  }
+}
