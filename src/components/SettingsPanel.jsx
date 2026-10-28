@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Toggle from "./Toggle";
-import { isTauriApp, getDesktopInfoNative, triggerAppUpdateNative } from "../workingcode/tauriBridge";
+import { isTauriApp, getDesktopInfo, checkForUpdate, installUpdate } from "../workingcode/tauriBridge";
 
 const NEON_PRESETS = [
   { label: "B&W",      color: "#ffffff", color2: "#ffffff", isBW: true },
@@ -128,18 +128,32 @@ export default function SettingsPanel({
   useEffect(() => {
     isTauriApp().then((ok) => {
       setIsDesktop(ok);
-      if (ok) getDesktopInfoNative().then((info) => setDesktopInfo(info));
+      if (ok) getDesktopInfo().then((info) => setDesktopInfo(info));
     });
   }, []);
 
   const handleUpdate = async () => {
     setUpdating(true);
-    setUpdateMsg("⏳ Controllo e download dell'aggiornamento in corso...");
+    setUpdateMsg("⏳ Controllo aggiornamenti firmati in corso...");
     try {
-      const res = await triggerAppUpdateNative();
-      setUpdateMsg("✅ " + res);
+      if (!isDesktop) {
+        setUpdateMsg("ℹ️ Per aggiornare l'app desktop scarica il setup qui sotto.");
+        return;
+      }
+      const update = await checkForUpdate();
+      if (!update) {
+        setUpdateMsg("✅ L'applicazione è già aggiornata all'ultima versione disponibile!");
+        return;
+      }
+      setUpdateMsg(`📥 Trovata versione v${update.version}. Download e verifica firma...`);
+      await installUpdate(update, (progress) => {
+        if (progress !== null) {
+          setUpdateMsg(`📥 Download: ${Math.round(progress * 100)}%...`);
+        }
+      });
+      setUpdateMsg("✅ Aggiornamento completato con successo! Riavvia l'applicazione.");
     } catch (e) {
-      setUpdateMsg("❌ Errore: " + (e.message || e));
+      setUpdateMsg("❌ Errore aggiornamento: " + (e.message || e));
     } finally {
       setUpdating(false);
     }
@@ -415,7 +429,7 @@ export default function SettingsPanel({
                   </div>
                   <div style={{ fontSize: 11, color: c.textMuted }}>
                     {isDesktop
-                      ? `Versione v1.0.0 installata · Utente: ${desktopInfo?.username || "Windows"}`
+                      ? `Versione v${desktopInfo?.version || "1.1.0"} installata · Utente: ${desktopInfo?.username || "Windows"}`
                       : "Stai visualizzando l'applicazione tramite browser web."}
                   </div>
                 </div>

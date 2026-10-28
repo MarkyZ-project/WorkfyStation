@@ -1,82 +1,87 @@
-// tauriBridge.js — Ponte nativo tra interfaccia web e backend Rust Tauri
+// tauriBridge.js — ponte tra l'interfaccia web e il backend Rust (Tauri).
+// Su browser (web) le funzioni native non sono disponibili: isTauriApp() restituisce false.
 
-let _isTauriCache = null;
+let _core = null;
+async function core() {
+  if (!_core) _core = await import("@tauri-apps/api/core");
+  return _core;
+}
 
+export function isDesktopApp() {
+  return typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
+}
 export async function isTauriApp() {
-  if (_isTauriCache !== null) return _isTauriCache;
-  if (typeof window === "undefined") {
-    _isTauriCache = false;
-    return false;
-  }
-  // Check global Tauri runtime properties
-  if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const ok = await invoke("is_tauri_app");
-      _isTauriCache = !!ok;
-      return _isTauriCache;
-    } catch {
-      _isTauriCache = false;
-      return false;
-    }
-  }
-  _isTauriCache = false;
-  return false;
+  return isDesktopApp();
 }
 
-export async function runPowerShellNative(command, cwd) {
-  const isDesktop = await isTauriApp();
-  if (!isDesktop) {
-    throw new Error(
-      "PowerShell nativa e disponibile solo all'interno dell'Applicazione Desktop per PC.\nSul browser web non e possibile accedere direttamente a powershell.exe per motivi di sicurezza del browser.\nScarica l'app per PC dalla schermata iniziale!"
-    );
-  }
-  const { invoke } = await import("@tauri-apps/api/core");
-  return await invoke("run_powershell", { command, cwd: cwd || null });
+async function call(cmd, args) {
+  if (!isDesktopApp()) throw new Error("Funzione disponibile solo nell'app per PC.");
+  const { invoke } = await core();
+  return invoke(cmd, args);
 }
 
-export async function getDesktopInfoNative() {
-  const isDesktop = await isTauriApp();
-  if (!isDesktop) {
-    return {
-      is_windows: true,
-      username: "Web User",
-      cwd: "Web Sandbox",
-      gcc_available: false,
-      powershell_available: false,
-      version: "1.0.0 (Web)",
-    };
-  }
-  const { invoke } = await import("@tauri-apps/api/core");
-  return await invoke("get_desktop_info");
+// ── Sistema ──
+export const getDesktopInfo = () => (isDesktopApp() ? call("get_desktop_info") : Promise.resolve(null));
+export const toolchainInfo = () => call("toolchain_info");
+
+// ── Cartella di lavoro (confinata dal backend) ──
+export const wsOpen = () => call("ws_open");
+export const wsReopen = (path) => call("ws_reopen", { path });
+export const wsRecent = () => call("ws_recent");
+export const wsInfo = () => call("ws_info");
+export const wsClose = () => call("ws_close");
+export const wsList = (rel = "") => call("ws_list", { rel });
+export const wsRead = (rel) => call("ws_read", { rel });
+export const wsWrite = (rel, content, eol = "lf") => call("ws_write", { rel, content, eol });
+export const wsCreate = (rel, isDir = false) => call("ws_create", { rel, isDir });
+export const wsRename = (from, to) => call("ws_rename", { from, to });
+export const wsDelete = (rel) => call("ws_delete", { rel });
+export const wsFiles = () => call("ws_files");
+export const wsGrep = (query, caseSensitive = false) => call("ws_grep", { query, caseSensitive });
+
+// ── Esecuzione locale interattiva ──
+export const runStart = (spec) => call("run_start", { spec });
+export const runStdin = (id, data) => call("run_stdin", { id, data });
+export const runCloseStdin = (id) => call("run_close_stdin", { id });
+export const runKill = (id) => call("run_kill", { id });
+
+async function listenTo(name, cb) {
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen(name, (e) => cb(e.payload));
+}
+/** Restituisce una funzione per annullare l'ascolto. */
+export async function onRunEvent(cb) {
+  return listenTo("wf-run", cb);
 }
 
-export async function compileAndRunCLocalNative(code, compiler, flags, stdinInput) {
-  const isDesktop = await isTauriApp();
-  if (!isDesktop) {
-    throw new Error("La compilazione locale richiede l'applicazione desktop.");
-  }
-  const { invoke } = await import("@tauri-apps/api/core");
-  return await invoke("compile_and_run_c_local", {
-    code,
-    compiler: compiler || "gcc",
-    flags: flags || "-std=c17 -Wall",
-    stdinInput: stdinInput || null,
+// ── Terminale (PTY) ──
+export const ptyOpen = (id, cols, rows) => call("pty_open", { id, cols, rows });
+export const ptyWrite = (id, data) => call("pty_write", { id, data });
+export const ptyResize = (id, cols, rows) => call("pty_resize", { id, cols, rows });
+export const ptyClose = (id) => call("pty_close", { id });
+export async function onPtyEvent(cb) {
+  return listenTo("wf-pty", cb);
+}
+
+// ── Aggiornamenti firmati (plugin ufficiale: verifica la firma con la chiave pubblica incorporata) ──
+export async function checkForUpdate() {
+  if (!isDesktopApp()) throw new Error("Gli aggiornamenti automatici sono disponibili nell'app per PC.");
+  const { check } = await import("@tauri-apps/plugin-updater");
+  return check();
+}
+
+export async function installUpdate(update, onProgress) {
+  let total = 0;
+  let done = 0;
+  await update.downloadAndInstall((ev) => {
+    if (ev.event === "Started") total = ev.data.contentLength || 0;
+    else if (ev.event === "Progress") {
+      done += ev.data.chunkLength;
+      onProgress?.(total ? Math.min(done / total, 1) : null);
+    } else if (ev.event === "Finished") onProgress?.(1);
   });
 }
 
-export async function triggerAppUpdateNative(installerUrl) {
-  const isDesktop = await isTauriApp();
-  if (!isDesktop) {
-    // Sul web, scarica direttamente il file
-    const link = document.createElement("a");
-    link.href = installerUrl || `${import.meta.env.BASE_URL}WorkfyStation-Setup.exe`;
-    link.download = "WorkfyStation-Setup.exe";
-    link.click();
-    return "Download avviato nel browser!";
-  }
-  const { invoke } = await import("@tauri-apps/api/core");
-  return await invoke("download_and_install_update", {
-    installerUrl: installerUrl || null,
-  });
+export function newId() {
+  return Math.floor(Math.random() * 2_000_000_000) + 1;
 }

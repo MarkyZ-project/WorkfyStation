@@ -1,7 +1,6 @@
 import { useState } from "react";
 import WorkingCodeWelcome from "./WorkingCodeWelcome";
 import WorkingCodeEditor from "./WorkingCodeEditor";
-import WorkingCodeTerminal from "./WorkingCodeTerminal";
 
 const ACCENT  = "#ff2d55";
 const ACCENT2 = "#ff0020";
@@ -9,7 +8,7 @@ const GOLD    = "#FFD700";
 
 const WC_TOOLS = [
   { id: "welcome",   label: "Home",       icon: "🏠" },
-  { id: "editor",    label: "Editor",     icon: "⌨️" },
+  { id: "editor",    label: "Editor IDE", icon: "⌨️" },
   { id: "terminal",  label: "Terminale",  icon: "🖥️" },
   { id: "projects",  label: "Progetti",   icon: "📁" },
   { id: "lessons",   label: "Lezioni",    icon: "🎓" },
@@ -45,8 +44,7 @@ export default function WorkingCodeApp({ user, onSwitchBack }) {
 
   function renderPanel() {
     if (active === "welcome") return <WorkingCodeWelcome onEnter={() => setActive("editor")} />;
-    if (active === "editor")  return <WorkingCodeEditor onOpenTerminal={() => setActive("terminal")} />;
-    if (active === "terminal") return <WorkingCodeTerminal onSwitchToEditor={() => setActive("editor")} />;
+    if (active === "editor" || active === "terminal") return <WorkingCodeEditor />;
     return <ComingSoon label={currentTool.label} icon={currentTool.icon} />;
   }
 

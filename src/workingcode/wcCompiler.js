@@ -20,6 +20,9 @@ export const COMPILERS_BY_LANG = {
     { id: "openjdk-jdk-22+36", label: "OpenJDK 22",         short: "Java 22",    version: "22" },
     { id: "openjdk-jdk-21+35", label: "OpenJDK 21 (LTS)",   short: "Java 21",    version: "21" },
   ],
+  python: [
+    { id: "cpython-head",      label: "Python 3 (Interprete)", short: "Python 3",   version: "3.x" },
+  ],
 };
 
 export const C_STANDARDS = [
@@ -43,7 +46,7 @@ export function getPreferredCompiler(langId) {
     const saved = localStorage.getItem(PREF_COMPILER_KEY + langId);
     const list = COMPILERS_BY_LANG[langId] || [];
     if (saved && list.some(c => c.id === saved)) return saved;
-    return list[0]?.id || "gcc-head-c";
+    return list[0]?.id || (langId === "python" ? "cpython-head" : "gcc-head-c");
   } catch {
     return (COMPILERS_BY_LANG[langId] || [])[0]?.id || "gcc-head-c";
   }
@@ -70,6 +73,7 @@ export function codeNeedsInput(code, langId) {
   if (langId === "c")    return /scanf\s*\(|gets\s*\(|getchar\s*\(/.test(code);
   if (langId === "cpp")  return /cin\s*>>|getline\s*\(\s*cin|scanf\s*\(/.test(code);
   if (langId === "java") return /\.next\w*\s*\(/.test(code);
+  if (langId === "python") return /input\s*\(/.test(code);
   return false;
 }
 
