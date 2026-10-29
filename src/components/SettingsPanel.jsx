@@ -14,41 +14,6 @@ const NEON_PRESETS = [
   { label: "Rosso",    color: "#ef4444", color2: "#dc2626" },
 ];
 
-const GLASS_PRESETS = [
-  {
-    id: "aurora",
-    label: "Aurora 3D",
-    sub: "Sfere Ciano, Corallo & Indaco",
-    preview: "linear-gradient(135deg, #5b6ef7 0%, #8e84fc 50%, #fb7185 100%)",
-    orb1: "radial-gradient(circle at 30% 30%, #ffffff, #38bdf8)",
-    orb2: "radial-gradient(circle at 30% 30%, #ffffff, #fb7185)",
-  },
-  {
-    id: "orchid",
-    label: "Orchid Soft",
-    sub: "Pastello Rosa & Lilla",
-    preview: "linear-gradient(135deg, #e599f7 0%, #f3c4fb 55%, #a2d2ff 100%)",
-    orb1: "radial-gradient(circle at 30% 30%, #ffffff, #e879f9)",
-    orb2: "radial-gradient(circle at 30% 30%, #ffffff, #7dd3fc)",
-  },
-  {
-    id: "azure",
-    label: "Azure Glass",
-    sub: "Cristallo Blu & Cobalto",
-    preview: "linear-gradient(135deg, #00c6ff 0%, #0072ff 100%)",
-    orb1: "radial-gradient(circle at 30% 30%, #ffffff, #00b4d8)",
-    orb2: "radial-gradient(circle at 30% 30%, #bae6fd, #023e8a)",
-  },
-  {
-    id: "crystal",
-    label: "Cristallo Tema",
-    sub: "Usa i tuoi colori attuali",
-    preview: "linear-gradient(135deg, #334155 0%, #64748b 50%, #cbd5e1 100%)",
-    orb1: "radial-gradient(circle at 30% 30%, #ffffff, #94a3b8)",
-    orb2: "radial-gradient(circle at 30% 30%, #ffffff, #c084fc)",
-  },
-];
-
 const BG_PRESETS_DARK = [
   { label: "Nero puro",   bg: "#000000" },
   { label: "Nero notte",  bg: "#0a0a0a" },
@@ -86,11 +51,7 @@ function hashPassword(str) {
 }
 
 export default function SettingsPanel({
-  dark, glowOn, glass,
-  glassPreset = "aurora", setGlassPreset,
-  glassBlur = 34, setGlassBlur,
-  glassOrbs = true, toggleGlassOrbs,
-  toggleDark, toggleGlow, toggleGlass,
+  dark, glowOn, glass, toggleDark, toggleGlow, toggleGlass,
   neon, neon2, setNeon, setNeon2,
   bgDark, setBgDark, bgLight, setBgLight,
   timeout, setTimeout: setTimeoutVal,
@@ -207,74 +168,44 @@ export default function SettingsPanel({
   ];
 
   const inp = { width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${c.border}`, background: c.inputBg, color: c.text, fontSize: 13, outline: "none", boxSizing: "border-box" };
-  const lbl = (t) => <div style={{ fontSize: 10, color: c.textHint, letterSpacing: 1, marginBottom: 6, marginTop: 14, fontWeight: 600 }}>{t}</div>;
+  const lbl = (t) => <div style={{ fontSize: 10, color: c.textHint, letterSpacing: 1, marginBottom: 6, marginTop: 14 }}>{t}</div>;
 
   const currentPin = pinStep === "enter" ? pinInput : pinStep === "confirm" ? pinConfirm : "";
   const pinDots = (val) => Array.from({ length: 6 }, (_, i) => (
     <div key={i} style={{ width: 12, height: 12, borderRadius: "50%", background: i < val.length ? c.accent : "transparent", border: `2px solid ${i < val.length ? c.accent : c.border}`, transition: "all .2s" }}/>
   ));
 
-  const activePresetObj = GLASS_PRESETS.find((p) => p.id === glassPreset) || GLASS_PRESETS[0];
-
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "flex-start", justifyContent: "flex-start" }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}/>
-      <div
-        className={c.glass ? "glass-card-3d glass-edge" : ""}
-        style={{
-          position: "relative", zIndex: 1, marginTop: 56, marginLeft: 14, width: 380, maxWidth: "calc(100vw - 28px)",
-          background: c.glass
-            ? (c.dark
-                ? "linear-gradient(135deg, rgba(28, 25, 54, 0.72) 0%, rgba(18, 16, 38, 0.56) 100%)"
-                : "linear-gradient(135deg, rgba(255, 255, 255, 0.76) 0%, rgba(255, 255, 255, 0.44) 100%)")
-            : c.surface2,
-          border: `1.5px solid ${c.glass ? c.glassBtnBorder : c.border}`,
-          borderRadius: 24,
-          boxShadow: c.glass ? c.glassShadow : "0 12px 48px rgba(0,0,0,0.6)",
-          display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 76px)", overflow: "hidden",
-          ...(c.glass ? { backdropFilter: `blur(${glassBlur}px) saturate(220%)`, WebkitBackdropFilter: `blur(${glassBlur}px) saturate(220%)` } : {}),
-        }}
-      >
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}/>
+      <div style={{ position: "relative", zIndex: 1, marginTop: 60, marginLeft: 12, width: 350, background: c.surface2, border: `1px solid ${c.border}`, borderRadius: 16, boxShadow: "0 12px 48px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 80px)", overflow: "hidden" }}>
 
         {/* Header */}
-        <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${c.border}`, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: c.text }}>Impostazioni</div>
-            {glass && (
-              <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 12, background: c.glassBtn, border: `1px solid ${c.glassBtnBorder}`, color: c.text, fontWeight: 700 }}>
-                LIQUID 3D
-              </span>
-            )}
-          </div>
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: c.textMuted, cursor: "pointer", fontSize: 20 }}>×</button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${c.border}`, flexShrink: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: c.text }}>Impostazioni</div>
+          <button onClick={onClose} className="no-glass" style={{ background: "transparent", border: "none", color: c.textMuted, cursor: "pointer", fontSize: 20 }}>×</button>
         </div>
 
         {/* Tabs sezioni */}
-        <div style={{ position: "relative", zIndex: 1, display: "flex", gap: 4, padding: "10px 12px", borderBottom: `1px solid ${c.border}`, flexShrink: 0, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 4, padding: "10px 12px", borderBottom: `1px solid ${c.border}`, flexShrink: 0, flexWrap: "wrap" }}>
           {SECTIONS.map(s => (
             <button key={s.id} onClick={() => setSection(s.id)}
-              style={{
-                padding: "6px 10px", borderRadius: 10,
-                border: `1px solid ${section===s.id?(c.glass?c.glassBtnBorder:c.accent):c.border}`,
-                background: section===s.id?(c.glass?c.glassBtn:c.accentBg):"transparent",
-                color: section===s.id?(c.glass?c.text:c.accent):c.textMuted,
-                cursor: "pointer", fontSize: 11, fontWeight: section===s.id?600:400, transition: "all .2s",
-              }}>
+              style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${section===s.id?c.accent:c.border}`, background: section===s.id?c.accentBg:"transparent", color: section===s.id?c.accent:c.textMuted, cursor: "pointer", fontSize: 11, fontWeight: section===s.id?600:400, transition: "all .2s" }}>
               {s.label}
             </button>
           ))}
         </div>
 
-        <div style={{ position: "relative", zIndex: 1, overflow: "auto", flex: 1, padding: "14px 16px" }}>
+        <div style={{ overflow: "auto", flex: 1, padding: "14px 16px" }}>
 
           {/* ── TEMA ── */}
           {section === "tema" && <>
-            <div style={{ fontSize: 11, color: c.textHint, letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>MODALITÀ E VETRO 3D</div>
+            <div style={{ fontSize: 11, color: c.textHint, letterSpacing: 1, marginBottom: 8 }}>MODALITÀ COLORI</div>
             
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${c.border}` }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: c.text }}>{dark ? "Modalità Scura (Notte)" : "Modalità Chiara (Luce & Pastello)"}</div>
-                <div style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>{dark ? "Profondità scura o vetro notturno" : "Luminosa, ideale per l'effetto vetro pastello"}</div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: c.text }}>{dark ? "Base Nera (Scritte Bianche)" : "Base Bianca (Scritte Nere)"}</div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>{dark ? "Modalità scura minimale ad alto contrasto" : "Modalità chiara pulita e luminosa"}</div>
               </div>
               <Toggle on={dark} onToggle={toggleDark} color={c.accent} dark={dark}/>
             </div>
@@ -282,203 +213,48 @@ export default function SettingsPanel({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${c.border}` }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: c.text }}>Effetti luce & Glow</div>
-                <div style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>Riflessi luminosi e bagliori dinamici</div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>Particelle e sfumature animate</div>
               </div>
               <Toggle on={glowOn} onToggle={toggleGlow} color={c.accent} dark={dark}/>
             </div>
 
-            {/* ── LIQUID GLASS 3D TOGGLE ── */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: `1px solid ${c.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${c.border}` }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: c.text, display: "flex", alignItems: "center", gap: 8 }}>
-                  Liquid Glass 3D
+                <div style={{ fontSize: 14, fontWeight: 500, color: c.text, display: "flex", alignItems: "center", gap: 8 }}>
+                  Bottoni Liquid Glass
                   <span style={{
                     fontSize: 9, padding: "2px 8px", borderRadius: 10,
-                    background: glass ? "linear-gradient(135deg, rgba(56,189,248,0.35), rgba(236,72,153,0.35))" : "transparent",
-                    border: `1px solid ${glass ? c.glassBtnBorder || c.accent : c.border}`,
-                    color: glass ? c.text : c.textHint,
-                    fontWeight: 700, letterSpacing: 0.5,
-                  }}>3D GLASS</span>
+                    background: glass ? (c.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)") : "transparent",
+                    border: `1px solid ${glass ? c.accent : c.border}`,
+                    color: glass ? c.accent : c.textHint,
+                    fontWeight: 600, letterSpacing: 0.5,
+                  }}>GLASS</span>
                 </div>
-                <div style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>
-                  Vetro smerigliato con rifrazione 3D, bordi speculari e sfere fluttuanti
-                </div>
+                <div style={{ fontSize: 11, color: c.textMuted, marginTop: 2 }}>Effetto vetro smerigliato applicato solo ai bottoni</div>
               </div>
               <Toggle on={glass} onToggle={toggleGlass} color={c.accent} dark={dark}/>
             </div>
 
-            {/* ── STUDIO DI PERSONALIZZAZIONE LIQUID GLASS ── */}
             {glass && (
               <div style={{
-                marginTop: 12,
-                padding: 14,
-                borderRadius: 18,
-                background: c.dark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.38)",
-                border: `1.5px solid ${c.glassBorder}`,
-                boxShadow: "inset 0 1.5px 1px rgba(255,255,255,0.65)",
+                marginTop: 10, padding: "12px 14px", borderRadius: 12,
+                background: c.dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+                border: `1px solid ${c.border}`,
+                display: "flex", flexDirection: "column", gap: 10,
               }}>
-                {/* Live 3D Glassmorphism Mini Showcase (Ispirato alle 3 immagini di riferimento) */}
-                <div style={{
-                  position: "relative",
-                  height: 158,
-                  borderRadius: 16,
-                  background: activePresetObj.preview,
-                  overflow: "hidden",
-                  padding: 14,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 10px 26px rgba(0,0,0,0.22)",
-                  marginBottom: 14,
-                }}>
-                  {/* Sfere 3D dietro il vetro nella card di anteprima */}
-                  {glassOrbs && (
-                    <>
-                      <div style={{
-                        position: "absolute", top: 8, left: 16, width: 64, height: 64, borderRadius: "50%",
-                        background: activePresetObj.orb1,
-                        boxShadow: "inset 0 6px 12px rgba(255,255,255,0.9), 0 8px 20px rgba(0,0,0,0.2)",
-                      }} />
-                      <div style={{
-                        position: "absolute", bottom: 8, right: 14, width: 76, height: 76, borderRadius: "50%",
-                        background: activePresetObj.orb2,
-                        boxShadow: "inset 0 6px 12px rgba(255,255,255,0.9), 0 8px 20px rgba(0,0,0,0.22)",
-                      }} />
-                    </>
-                  )}
-
-                  {/* Lastra di vetro smerigliato sopra le sfere */}
-                  <div style={{
-                    position: "relative",
-                    zIndex: 2,
-                    width: "92%",
-                    padding: "12px 14px",
-                    borderRadius: 16,
-                    background: "linear-gradient(135deg, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.16) 100%)",
-                    backdropFilter: `blur(${Math.round(glassBlur * 0.6)}px) saturate(210%)`,
-                    WebkitBackdropFilter: `blur(${Math.round(glassBlur * 0.6)}px) saturate(210%)`,
-                    border: "1.5px solid rgba(255,255,255,0.75)",
-                    boxShadow: "0 14px 32px rgba(0,0,0,0.22), inset 0 1.5px 1px rgba(255,255,255,0.9)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                  }}>
-                    {/* Riga 1: 4 Squircle Icon 3D (come Immagine 1) */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                      {[
-                        { icon: "🕒", label: "Storia", col: "#3b82f6" },
-                        { icon: "▶️", label: "Media",  col: "#0ea5e9" },
-                        { icon: "⭐", label: "Preferiti", col: "#f97316" },
-                        { icon: "❤️", label: "Like",   col: "#f43f5e" },
-                      ].map((it, idx) => (
-                        <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                          <div style={{
-                            width: 38, height: 38, borderRadius: 12,
-                            background: "linear-gradient(145deg, rgba(255,255,255,0.82), rgba(255,255,255,0.32))",
-                            border: "1px solid rgba(255,255,255,0.9)",
-                            boxShadow: `0 6px 14px ${it.col}44, inset 0 1.5px 1px #ffffff`,
-                            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17,
-                          }}>
-                            <span style={{ filter: `drop-shadow(0 2px 4px ${it.col}88)` }}>{it.icon}</span>
-                          </div>
-                          <span style={{ fontSize: 9, fontWeight: 600, color: "#ffffff", textShadow: "0 1px 3px rgba(0,0,0,0.25)" }}>{it.label}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Riga 2: Barra Pill Glassmorphism (come Immagine 3) */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{
-                        flex: 1, padding: "5px 10px", borderRadius: 20,
-                        background: "linear-gradient(135deg, rgba(255,255,255,0.45), rgba(255,255,255,0.18))",
-                        border: "1px solid rgba(255,255,255,0.75)",
-                        color: "#ffffff", fontSize: 10, fontWeight: 500,
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                      }}>
-                        <span>🔍 Liquid Glass...</span>
-                        <span>▾</span>
-                      </div>
-                      <div style={{
-                        width: 24, height: 24, borderRadius: "50%",
-                        background: "linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0.2))",
-                        border: "1px solid rgba(255,255,255,0.85)",
-                        color: "#fff", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>★</div>
-                    </div>
-                  </div>
+                <div style={{ fontSize: 11, color: c.textMuted }}>
+                  ✨ Anteprima Bottoni Liquid Glass:
                 </div>
-
-                {/* Selettore Atmosfera Liquid Glass (4 Preset) */}
-                <div style={{ fontSize: 10, fontWeight: 700, color: c.text, letterSpacing: 0.8, marginBottom: 8 }}>
-                  ATMOSFERA LIQUID GLASS
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-                  {GLASS_PRESETS.map((p) => {
-                    const active = glassPreset === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => setGlassPreset?.(p.id)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          padding: "8px 10px",
-                          borderRadius: 12,
-                          border: active ? "2px solid #ffffff" : `1px solid ${c.border}`,
-                          background: active
-                            ? "linear-gradient(135deg, rgba(255,255,255,0.34), rgba(255,255,255,0.14))"
-                            : "rgba(255,255,255,0.08)",
-                          color: c.text,
-                          cursor: "pointer",
-                          textAlign: "left",
-                          boxShadow: active ? "0 6px 18px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.8)" : "none",
-                          transition: "all 0.2s",
-                        }}
-                      >
-                        <div style={{
-                          width: 26, height: 26, borderRadius: 8,
-                          background: p.preview,
-                          border: "1.5px solid rgba(255,255,255,0.85)",
-                          flexShrink: 0,
-                        }} />
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {p.label}
-                          </div>
-                          <div style={{ fontSize: 9, color: c.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {p.sub}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Slider Smerigliatura (Blur) */}
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: c.text, marginBottom: 4 }}>
-                    <span style={{ fontWeight: 600 }}>Intensità Smerigliatura (Blur)</span>
-                    <span style={{ fontWeight: 700 }}>{glassBlur}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={16}
-                    max={48}
-                    step={2}
-                    value={glassBlur}
-                    onChange={(e) => setGlassBlur?.(parseInt(e.target.value, 10))}
-                    style={{ width: "100%", cursor: "pointer", accentColor: c.accent }}
-                  />
-                </div>
-
-                {/* Toggle Sfere 3D */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 6, borderTop: `1px solid ${c.border}` }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: c.text }}>Sfere 3D Fluttuanti</div>
-                    <div style={{ fontSize: 10, color: c.textMuted }}>Sfere luminose rifratte dietro i pannelli</div>
-                  </div>
-                  <Toggle on={glassOrbs} onToggle={toggleGlassOrbs} color={c.accent} dark={dark} />
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <button style={{ padding: "8px 18px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    Seleziona ▾
+                  </button>
+                  <button style={{ width: 34, height: 34, borderRadius: "50%", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    ★
+                  </button>
+                  <button style={{ width: 34, height: 34, borderRadius: 10, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    ♥
+                  </button>
                 </div>
               </div>
             )}
@@ -528,9 +304,9 @@ export default function SettingsPanel({
               <input type="color" value={currentBg} onChange={e => setCurrentBg(e.target.value)} style={{ width: 32, height: 32, border: "none", borderRadius: 8, cursor: "pointer", padding: 1 }} title="Personalizzato"/>
             </div>
 
-            <button onClick={() => { setNeon("#ffffff"); setNeon2("#ffffff"); setBgDark("#000000"); setBgLight("#ffffff"); setGlassPreset?.("aurora"); setGlassBlur?.(34); }}
-              style={{ width: "100%", padding: "9px", borderRadius: 10, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, cursor: "pointer", fontSize: 12, marginTop: 8 }}>
-              Ripristina predefiniti
+            <button onClick={() => { setNeon("#ffffff"); setNeon2("#ffffff"); setBgDark("#000000"); setBgLight("#ffffff"); }}
+              style={{ width: "100%", padding: "9px", borderRadius: 8, border: `1px solid ${c.border}`, background: "transparent", color: c.textMuted, cursor: "pointer", fontSize: 12, marginTop: 8 }}>
+              Ripristina predefiniti (Bianco & Nero)
             </button>
           </>}
 
