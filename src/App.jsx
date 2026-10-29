@@ -78,26 +78,127 @@ function useTheme() {
     localStorage.setItem("wfy_bw_v2", "1");
   }
 
-  const [dark,    setDark]       = useState(() => localStorage.getItem("wfy_dark")    !== "false");
-  const [glowOn,  setGlowOn]     = useState(() => localStorage.getItem("wfy_glow")    !== "false");
-  const [glass,   setGlassRaw]   = useState(() => localStorage.getItem("wfy_glass")   === "true");
-  const [neon,    setNeonRaw]    = useState(() => localStorage.getItem("wfy_neon")    || "#ffffff");
-  const [neon2,   setNeon2Raw]   = useState(() => localStorage.getItem("wfy_neon2")   || "#ffffff");
-  const [bgDark,  setBgDarkRaw]  = useState(() => localStorage.getItem("wfy_bgdark")  || "#000000");
-  const [bgLight, setBgLightRaw] = useState(() => localStorage.getItem("wfy_bglight") || "#ffffff");
+  const [dark,        setDark]          = useState(() => localStorage.getItem("wfy_dark")         !== "false");
+  const [glowOn,      setGlowOn]        = useState(() => localStorage.getItem("wfy_glow")         !== "false");
+  const [glass,       setGlassRaw]      = useState(() => localStorage.getItem("wfy_glass")        === "true");
+  const [glassPreset, setGlassPresetRaw]= useState(() => localStorage.getItem("wfy_glass_preset") || "aurora");
+  const [glassBlur,   setGlassBlurRaw]  = useState(() => parseInt(localStorage.getItem("wfy_glass_blur") || "34", 10));
+  const [glassOrbs,   setGlassOrbsRaw]  = useState(() => localStorage.getItem("wfy_glass_orbs")   !== "false");
+  const [neon,        setNeonRaw]       = useState(() => localStorage.getItem("wfy_neon")         || "#ffffff");
+  const [neon2,       setNeon2Raw]      = useState(() => localStorage.getItem("wfy_neon2")        || "#ffffff");
+  const [bgDark,      setBgDarkRaw]     = useState(() => localStorage.getItem("wfy_bgdark")       || "#000000");
+  const [bgLight,     setBgLightRaw]    = useState(() => localStorage.getItem("wfy_bglight")      || "#ffffff");
 
-  const toggleDark  = () => { const v=!dark;   setDark(v);   localStorage.setItem("wfy_dark",   v); };
-  const toggleGlow  = () => { const v=!glowOn; setGlowOn(v); localStorage.setItem("wfy_glow",   v); };
-  const toggleGlass = () => { const v=!glass;  setGlassRaw(v); localStorage.setItem("wfy_glass", v); };
-  const setNeon     = v  => { setNeonRaw(v);   localStorage.setItem("wfy_neon",   v); };
-  const setNeon2    = v  => { setNeon2Raw(v);  localStorage.setItem("wfy_neon2",  v); };
-  const setBgDark   = v  => { setBgDarkRaw(v); localStorage.setItem("wfy_bgdark", v); };
-  const setBgLight  = v  => { setBgLightRaw(v);localStorage.setItem("wfy_bglight",v); };
+  const toggleDark      = () => { const v=!dark;      setDark(v);        localStorage.setItem("wfy_dark",         v); };
+  const toggleGlow      = () => { const v=!glowOn;    setGlowOn(v);      localStorage.setItem("wfy_glow",         v); };
+  const toggleGlass     = () => { const v=!glass;     setGlassRaw(v);    localStorage.setItem("wfy_glass",        v); };
+  const setGlassPreset  = v  => { setGlassPresetRaw(v);                  localStorage.setItem("wfy_glass_preset", v); };
+  const setGlassBlur    = v  => { setGlassBlurRaw(v);                    localStorage.setItem("wfy_glass_blur",   String(v)); };
+  const toggleGlassOrbs = () => { const v=!glassOrbs; setGlassOrbsRaw(v);localStorage.setItem("wfy_glass_orbs",   v); };
+  const setNeon         = v  => { setNeonRaw(v);                         localStorage.setItem("wfy_neon",         v); };
+  const setNeon2        = v  => { setNeon2Raw(v);                        localStorage.setItem("wfy_neon2",        v); };
+  const setBgDark       = v  => { setBgDarkRaw(v);                       localStorage.setItem("wfy_bgdark",       v); };
+  const setBgLight      = v  => { setBgLightRaw(v);                      localStorage.setItem("wfy_bglight",      v); };
 
-  return { dark, glowOn, glass, neon, neon2, bgDark, bgLight, toggleDark, toggleGlow, toggleGlass, setNeon, setNeon2, setBgDark, setBgLight };
+  return {
+    dark, glowOn, glass, glassPreset, glassBlur, glassOrbs,
+    neon, neon2, bgDark, bgLight,
+    toggleDark, toggleGlow, toggleGlass, setGlassPreset, setGlassBlur, toggleGlassOrbs,
+    setNeon, setNeon2, setBgDark, setBgLight,
+  };
 }
 
-function getC(dark, neon, neon2, bgDark, bgLight, glass) {
+// ── Sfondo 3D Liquid Glass con Sfere Luminose Rifratte (ispirato a Glassmorphism 3D) ──
+function LiquidGlassBackdrop({ dark, preset, orbs, neon, neon2 }) {
+  const rgb1 = hexToRgb(neon);
+  const rgb2 = hexToRgb(neon2);
+
+  const themes = {
+    aurora: {
+      bg: dark
+        ? "linear-gradient(135deg, #16143a 0%, #2b1f66 42%, #432371 76%, #1b1238 100%)"
+        : "linear-gradient(135deg, #5b6ef7 0%, #867efb 45%, #b993fa 78%, #e2c6fc 100%)",
+      sphere1: "radial-gradient(circle at 30% 28%, #ffffff 0%, #cffafe 28%, #38bdf8 68%, #0284c7 100%)",
+      sphere2: "radial-gradient(circle at 32% 28%, #ffffff 0%, #ffe4e6 28%, #fb7185 66%, #e11d48 100%)",
+      sphere3: "radial-gradient(circle at 30% 28%, #ffffff 0%, #e0e7ff 32%, #818cf8 70%, #4f46e5 100%)",
+      centerGlow: "radial-gradient(circle, rgba(139, 92, 246, 0.48) 0%, rgba(56, 189, 248, 0.22) 45%, transparent 72%)",
+    },
+    orchid: {
+      bg: dark
+        ? "linear-gradient(135deg, #281136 0%, #481d5c 48%, #2e1a47 100%)"
+        : "linear-gradient(135deg, #e599f7 0%, #f3c4fb 45%, #e9d8fd 78%, #c5b3ff 100%)",
+      sphere1: "radial-gradient(circle at 30% 28%, #ffffff 0%, #fae8ff 34%, #e879f9 72%, #a21caf 100%)",
+      sphere2: "radial-gradient(circle at 32% 30%, #ffffff 0%, #e0f2fe 32%, #7dd3fc 68%, #6366f1 100%)",
+      sphere3: "radial-gradient(circle at 30% 28%, #ffffff 0%, #fce7f3 35%, #f472b6 72%, #9333ea 100%)",
+      centerGlow: "radial-gradient(circle, rgba(232, 121, 249, 0.42) 0%, rgba(168, 85, 247, 0.20) 50%, transparent 72%)",
+    },
+    azure: {
+      bg: dark
+        ? "linear-gradient(135deg, #031938 0%, #013a7d 48%, #0066b2 100%)"
+        : "linear-gradient(135deg, #00c6ff 0%, #0092ff 50%, #005bea 100%)",
+      sphere1: "radial-gradient(circle at 28% 26%, #ffffff 0%, #a5f3fc 32%, #00b4d8 70%, #0077b6 100%)",
+      sphere2: "radial-gradient(circle at 32% 30%, #e0f2fe 0%, #38bdf8 38%, #0284c7 75%, #03045e 100%)",
+      sphere3: "radial-gradient(circle at 30% 28%, #ffffff 0%, #bae6fd 34%, #0ea5e9 72%, #1d4ed8 100%)",
+      centerGlow: "radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(2, 132, 199, 0.22) 50%, transparent 72%)",
+    },
+    crystal: {
+      bg: dark
+        ? `linear-gradient(135deg, #090b14 0%, rgba(${rgb1}, 0.16) 50%, #0b0716 100%)`
+        : `linear-gradient(135deg, #dde7ff 0%, #efe8ff 50%, #d8f3ff 100%)`,
+      sphere1: `radial-gradient(circle at 30% 28%, #ffffff 0%, rgba(${rgb1}, 0.85) 55%, #38bdf8 100%)`,
+      sphere2: `radial-gradient(circle at 32% 30%, #ffffff 0%, rgba(${rgb2}, 0.85) 55%, #f472b6 100%)`,
+      sphere3: `radial-gradient(circle at 30% 28%, #ffffff 0%, #c7d2fe 45%, #818cf8 100%)`,
+      centerGlow: `radial-gradient(circle, rgba(${rgb1}, 0.28) 0%, transparent 70%)`,
+    },
+  };
+
+  const t = themes[preset] || themes.aurora;
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: t.bg, overflow: "hidden", pointerEvents: "none", zIndex: 0, transition: "background 0.5s ease" }}>
+      {/* Luce centrale diffusa */}
+      <div style={{ position: "absolute", top: "18%", left: "22%", width: "56%", height: "64%", background: t.centerGlow, filter: "blur(55px)", borderRadius: "50%" }} />
+
+      {orbs && (
+        <>
+          {/* Sfera 3D Top-Left (Ciano/Perla come Immagine 1) */}
+          <div style={{
+            position: "absolute", top: "6%", left: "14%", width: 230, height: 230, borderRadius: "50%",
+            background: t.sphere1,
+            boxShadow: "0 24px 60px rgba(56, 189, 248, 0.35), inset 0 10px 24px rgba(255,255,255,0.9), inset -10px -14px 28px rgba(0,0,0,0.18)",
+            animation: "orb-float-1 11s ease-in-out infinite",
+          }} />
+
+          {/* Sfera 3D Right (Corallo/Rosa o Cobalto come Immagine 1 & 3) */}
+          <div style={{
+            position: "absolute", top: "24%", right: "7%", width: 290, height: 290, borderRadius: "50%",
+            background: t.sphere2,
+            boxShadow: "0 28px 70px rgba(244, 63, 94, 0.30), inset 0 12px 28px rgba(255,255,255,0.88), inset -12px -18px 34px rgba(0,0,0,0.20)",
+            animation: "orb-float-2 14s ease-in-out infinite",
+          }} />
+
+          {/* Sfera 3D Bottom-Left (Indaco/Perla grande come Immagine 1 & 2) */}
+          <div style={{
+            position: "absolute", bottom: "-6%", left: "6%", width: 320, height: 320, borderRadius: "50%",
+            background: t.sphere3,
+            boxShadow: "0 30px 75px rgba(99, 102, 241, 0.35), inset 0 14px 30px rgba(255,255,255,0.92), inset -14px -18px 36px rgba(0,0,0,0.20)",
+            animation: "orb-float-3 16s ease-in-out infinite",
+          }} />
+
+          {/* Piccola sfera 3D satellite in alto a destra (come Immagine 3) */}
+          <div style={{
+            position: "absolute", top: "9%", right: "32%", width: 74, height: 74, borderRadius: "50%",
+            background: t.sphere1,
+            boxShadow: "0 12px 30px rgba(0, 0, 0, 0.22), inset 0 6px 14px rgba(255,255,255,0.9)",
+            animation: "orb-float-2 9s ease-in-out infinite",
+          }} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function getC(dark, neon, neon2, bgDark, bgLight, glass, glassPreset = "aurora", glassBlur = 34) {
   const isBW = isMonochrome(neon);
   const rgb = hexToRgb(neon);
 
@@ -109,13 +210,15 @@ function getC(dark, neon, neon2, bgDark, bgLight, glass) {
       dark: true,
       isBW,
       glass: !!glass,
+      glassPreset,
+      glassBlur,
       bg: bgDark || "#000000",
       surface: isBW ? "rgba(255,255,255,0.03)" : `rgba(${rgb},0.03)`,
       surface2: isBW ? "#121212" : "#16161f",
       border: isBW ? "rgba(255,255,255,0.14)" : `rgba(${rgb},0.22)`,
       text: "#ffffff",
-      textMuted: "rgba(255,255,255,0.65)",
-      textHint: isBW ? "rgba(255,255,255,0.4)" : `rgba(${rgb},0.55)`,
+      textMuted: "rgba(255,255,255,0.68)",
+      textHint: isBW ? "rgba(255,255,255,0.45)" : `rgba(${rgb},0.55)`,
       accent: accent,
       accentText: isBW ? "#000000" : "#ffffff",
       accentBg: `rgba(${accentRgb},0.12)`,
@@ -124,55 +227,72 @@ function getC(dark, neon, neon2, bgDark, bgLight, glass) {
       inputBg: "rgba(255,255,255,0.06)",
     };
     if (glass) {
-      base.surface = "rgba(255,255,255,0.07)";
-      base.surface2 = "rgba(255,255,255,0.12)";
-      base.border = "rgba(255,255,255,0.25)";
-      base.headerBg = "rgba(255,255,255,0.05)";
-      base.inputBg = "rgba(255,255,255,0.15)";
-      base.glassSurface = "rgba(255,255,255,0.12)";
-      base.glassBorder = `rgba(255,255,255,0.35)`;
-      base.glassShadow = "0 8px 32px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.3), inset 0 0 20px rgba(255,255,255,0.05)";
-      base.glassBtn = "rgba(255,255,255,0.15)";
-      base.glassBtnHover = "rgba(255,255,255,0.25)";
-      base.glassBtnBorder = "rgba(255,255,255,0.4)";
-      base.glassHighlight = "rgba(255,255,255,0.25)";
+      base.surface = "linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 100%)";
+      base.surface2 = "linear-gradient(135deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.09) 100%)";
+      base.border = "rgba(255,255,255,0.38)";
+      base.headerBg = "linear-gradient(135deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.05) 100%)";
+      base.inputBg = "rgba(255,255,255,0.16)";
+      base.textMuted = "rgba(255,255,255,0.82)";
+      base.textHint = "rgba(255,255,255,0.62)";
+      base.glassSurface = "linear-gradient(135deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.07) 55%, rgba(255,255,255,0.04) 100%)";
+      base.glassCard = "linear-gradient(135deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.09) 55%, rgba(255,255,255,0.04) 100%)";
+      base.glassBorder = "rgba(255,255,255,0.48)";
+      base.glassShadow = "0 20px 50px rgba(0,0,0,0.35), inset 0 1.5px 1px rgba(255,255,255,0.68), inset 1px 0 1px rgba(255,255,255,0.28), inset 0 -1.5px 2px rgba(255,255,255,0.12)";
+      base.glassBtn = "linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.10) 100%)";
+      base.glassBtnHover = "linear-gradient(135deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.16) 100%)";
+      base.glassBtnBorder = "rgba(255,255,255,0.58)";
+      base.glassHighlight = "rgba(255,255,255,0.35)";
     }
     return base;
   } else {
-    // BASE BIANCA, SCRITTE NERE (Viceversa)
-    const accent = isBW ? "#000000" : neon2;
-    const accentRgb = isBW ? "0,0,0" : hexToRgb(neon2);
+    // BASE CHIARA / PASTEL GLASS
+    const isVividGlass = glass && (glassPreset === "aurora" || glassPreset === "azure");
+    const accent = isVividGlass ? "#ffffff" : (isBW ? "#1e1b4b" : neon2);
+    const accentRgb = isVividGlass ? "255,255,255" : (isBW ? "30,27,75" : hexToRgb(neon2));
     const base = {
       dark: false,
       isBW,
       glass: !!glass,
+      glassPreset,
+      glassBlur,
       bg: bgLight || "#ffffff",
       surface: "#ffffff",
       surface2: "#f3f3f5",
       border: isBW ? "#e4e4e7" : "#e0e0e0",
-      text: "#0a0a0a",
-      textMuted: "#555555",
-      textHint: "#888888",
+      text: isVividGlass ? "#ffffff" : "#18122b",
+      textMuted: isVividGlass ? "rgba(255,255,255,0.86)" : "#4a4458",
+      textHint: isVividGlass ? "rgba(255,255,255,0.68)" : "#766f88",
       accent: accent,
-      accentText: "#ffffff",
-      accentBg: `rgba(${accentRgb},0.08)`,
-      accentBg2: `rgba(${accentRgb},0.04)`,
+      accentText: isVividGlass ? "#1e1b4b" : "#ffffff",
+      accentBg: `rgba(${accentRgb},0.12)`,
+      accentBg2: `rgba(${accentRgb},0.06)`,
       headerBg: "#ffffff",
       inputBg: "#f4f4f6",
     };
     if (glass) {
-      base.surface = "rgba(255,255,255,0.6)";
-      base.surface2 = "rgba(255,255,255,0.5)";
-      base.border = "rgba(255,255,255,0.8)";
-      base.headerBg = "rgba(255,255,255,0.4)";
-      base.inputBg = "rgba(255,255,255,0.7)";
-      base.glassSurface = "rgba(255,255,255,0.4)";
-      base.glassBorder = `rgba(255,255,255,0.9)`;
-      base.glassShadow = "0 8px 32px rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,1), inset 0 0 20px rgba(255,255,255,0.4)";
-      base.glassBtn = "rgba(255,255,255,0.5)";
-      base.glassBtnHover = "rgba(255,255,255,0.7)";
-      base.glassBtnBorder = "rgba(255,255,255,0.9)";
-      base.glassHighlight = "rgba(255,255,255,0.5)";
+      base.surface = isVividGlass
+        ? "linear-gradient(135deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.14) 100%)"
+        : "linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.38) 100%)";
+      base.surface2 = isVividGlass
+        ? "linear-gradient(135deg, rgba(255,255,255,0.40) 0%, rgba(255,255,255,0.18) 100%)"
+        : "linear-gradient(135deg, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.46) 100%)";
+      base.border = "rgba(255,255,255,0.72)";
+      base.headerBg = isVividGlass
+        ? "linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.10) 100%)"
+        : "linear-gradient(135deg, rgba(255,255,255,0.64) 0%, rgba(255,255,255,0.32) 100%)";
+      base.inputBg = isVividGlass ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.72)";
+      base.glassSurface = base.surface;
+      base.glassCard = base.surface2;
+      base.glassBorder = "rgba(255,255,255,0.88)";
+      base.glassShadow = "0 20px 50px rgba(31, 38, 135, 0.22), inset 0 2px 1.5px rgba(255,255,255,0.92), inset 1.5px 0 1.5px rgba(255,255,255,0.55), inset 0 -2px 4px rgba(255,255,255,0.28)";
+      base.glassBtn = isVividGlass
+        ? "linear-gradient(135deg, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.18) 100%)"
+        : "linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.46) 100%)";
+      base.glassBtnHover = isVividGlass
+        ? "linear-gradient(135deg, rgba(255,255,255,0.58) 0%, rgba(255,255,255,0.26) 100%)"
+        : "linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.62) 100%)";
+      base.glassBtnBorder = "rgba(255,255,255,0.92)";
+      base.glassHighlight = "rgba(255,255,255,0.65)";
     }
     return base;
   }
@@ -208,13 +328,13 @@ function MobileDrawer({ c, active, setActive, onClose }) {
   return (
     <>
       <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:300, backdropFilter:"blur(4px)" }}/>
-      <div className={c.glass?"glass-surface glass-edge":""} style={{ position:"fixed", bottom:64, left:0, right:0, zIndex:301, background: c.glass ? (c.dark?"rgba(15,15,15,0.65)":"rgba(255,255,255,0.55)") : (c.dark ? (c.isBW ? "#121212" : "#13101a") : "#fff"), border:c.glass?"none":`1px solid ${c.border}`, borderRadius:"20px 20px 0 0", padding:"20px 16px 16px", animation:"slideUp .3s cubic-bezier(.16,1,.3,1) both", ...(c.glass?{backdropFilter:"blur(30px) saturate(200%)", boxShadow:"0 -8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12)", border:`1px solid ${c.dark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.08)"}`}:{}) }}>
+      <div className={c.glass?"glass-surface glass-edge":""} style={{ position:"fixed", bottom:64, left:0, right:0, zIndex:301, background: c.glass ? c.glassCard : (c.dark ? (c.isBW ? "#121212" : "#13101a") : "#fff"), border:c.glass?"none":`1px solid ${c.border}`, borderRadius:"24px 24px 0 0", padding:"20px 16px 16px", animation:"slideUp .3s cubic-bezier(.16,1,.3,1) both", ...(c.glass?{backdropFilter:`blur(${c.glassBlur || 34}px) saturate(210%)`, boxShadow:c.glassShadow, border:`1px solid ${c.glassBorder}`}:{}) }}>
         <div style={{ width:36, height:4, borderRadius:2, background:c.border, margin:"0 auto 20px" }}/>
         <div style={{ fontSize:12, color:c.textHint, letterSpacing:1, marginBottom:12 }}>TUTTI GLI STRUMENTI</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10 }}>
           {TOOLS.map(t => (
             <button key={t.id} onClick={() => { setActive(t.id); onClose(); }}
-              style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, padding:"14px 8px", borderRadius:14, cursor:"pointer", border:`1px solid ${active===t.id?c.accent:c.border}`, background:active===t.id?c.accentBg:c.surface, color:active===t.id?c.accent:c.textMuted }}>
+              style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, padding:"14px 8px", borderRadius:16, cursor:"pointer", border:`1px solid ${active===t.id?c.accent:c.border}`, background:active===t.id?c.accentBg:c.surface, color:active===t.id?c.accent:c.textMuted }}>
               <span style={{ fontSize:24 }}>{t.icon}</span>
               <span style={{ fontSize:10, fontWeight:active===t.id?600:400, textAlign:"center" }}>{t.label}</span>
             </button>
@@ -237,7 +357,7 @@ function MiniPlayer({ audioState, audioRef, blobMap, c }) {
     else audioRef.current.play().catch(()=>{});
   };
   return (
-    <div className={c.glass?"glass-surface":""} style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:150, background: c.glass ? (c.dark?"rgba(10,10,10,0.55)":"rgba(255,255,255,0.55)") : (c.dark ? "rgba(10,10,10,0.97)" : "rgba(255,255,255,0.97)"), borderTop:c.glass?"none":`1px solid ${c.border}`, padding:"8px 16px", display:"flex", alignItems:"center", gap:12, backdropFilter:c.glass?"blur(30px) saturate(200%)":"blur(12px)", ...(c.glass?{boxShadow:"0 -2px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.1)"}:{}) }}>
+    <div className={c.glass?"glass-surface":""} style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:150, background: c.glass ? c.glassSurface : (c.dark ? "rgba(10,10,10,0.97)" : "rgba(255,255,255,0.97)"), borderTop:c.glass?"none":`1px solid ${c.border}`, padding:"8px 16px", display:"flex", alignItems:"center", gap:12, backdropFilter:c.glass?`blur(${c.glassBlur || 34}px) saturate(210%)`:"blur(12px)", ...(c.glass?{boxShadow:c.glassShadow}:{}) }}>
       <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background: c.border }}>
         <div style={{ height:"100%", width:`${pct}%`, background: c.accent, transition:"width .1s linear" }}/>
       </div>
@@ -258,14 +378,14 @@ function MiniPlayer({ audioState, audioRef, blobMap, c }) {
 // ── App principale ──
 export default function App() {
   // Screen e utente
-const [screen, setScreen] = useState(() => {
-  const landed = localStorage.getItem("wfy_landed");
-  if (!landed) return "landing";
-  const user = localStorage.getItem("wfy_user");
-  const accounts = localStorage.getItem("wfy_accounts");
-  if (user && accounts) return "app";
-  return "register";
-});
+  const [screen, setScreen] = useState(() => {
+    const landed = localStorage.getItem("wfy_landed");
+    if (!landed) return "landing";
+    const user = localStorage.getItem("wfy_user");
+    const accounts = localStorage.getItem("wfy_accounts");
+    if (user && accounts) return "app";
+    return "register";
+  });
   const [user,    setUser]     = useState(() => { try { return JSON.parse(localStorage.getItem("wfy_user")||"null"); } catch { return null; } });
 
   // UI
@@ -288,8 +408,13 @@ const [screen, setScreen] = useState(() => {
   const lastActivity = useRef(Date.now());
 
   // Tema
-  const { dark, glowOn, glass, neon, neon2, bgDark, bgLight, toggleDark, toggleGlow, toggleGlass, setNeon, setNeon2, setBgDark, setBgLight } = useTheme();
-  const c = getC(dark, neon, neon2, bgDark, bgLight, glass);
+  const {
+    dark, glowOn, glass, glassPreset, glassBlur, glassOrbs,
+    neon, neon2, bgDark, bgLight,
+    toggleDark, toggleGlow, toggleGlass, setGlassPreset, setGlassBlur, toggleGlassOrbs,
+    setNeon, setNeon2, setBgDark, setBgLight,
+  } = useTheme();
+  const c = getC(dark, neon, neon2, bgDark, bgLight, glass, glassPreset, glassBlur);
 
   // Audio globale
   const audioRef = useRef(new Audio());
@@ -470,26 +595,17 @@ const [screen, setScreen] = useState(() => {
   const currentTool = TOOLS.find(t=>t.id===active) || { icon:"🏠", label:"Home" };
 
   return (
-    <div style={{ display:"flex", height:"100vh", background:c.bg, fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", color:c.text, position:"relative" }}>
-      {c.glass && c.dark && (
-        <>
-          <div style={{ position:"absolute", top:"-20%", left:"-10%", width:"50%", height:"50%", background:c.isBW?"rgba(255,255,255,0.03)":`radial-gradient(circle, rgba(${hexToRgb(neon)},0.15) 0%, transparent 70%)`, filter:"blur(80px)", pointerEvents:"none", zIndex:0 }}/>
-          <div style={{ position:"absolute", bottom:"-20%", right:"-10%", width:"60%", height:"60%", background:c.isBW?"rgba(255,255,255,0.02)":`radial-gradient(circle, rgba(${hexToRgb(neon2)},0.12) 0%, transparent 70%)`, filter:"blur(100px)", pointerEvents:"none", zIndex:0 }}/>
-        </>
-      )}
-      {c.glass && !c.dark && (
-        <>
-          <div style={{ position:"absolute", top:"-20%", left:"-10%", width:"50%", height:"50%", background:c.isBW?"rgba(0,0,0,0.02)":`radial-gradient(circle, rgba(${hexToRgb(neon)},0.1) 0%, transparent 70%)`, filter:"blur(80px)", pointerEvents:"none", zIndex:0 }}/>
-          <div style={{ position:"absolute", bottom:"-20%", right:"-10%", width:"60%", height:"60%", background:c.isBW?"rgba(0,0,0,0.01)":`radial-gradient(circle, rgba(${hexToRgb(neon2)},0.08) 0%, transparent 70%)`, filter:"blur(100px)", pointerEvents:"none", zIndex:0 }}/>
-        </>
+    <div style={{ display:"flex", height:"100vh", background:c.bg, fontFamily:"'Segoe UI',sans-serif", overflow:"hidden", color:c.text, position:"relative", "--glass-blur": `${glassBlur}px` }}>
+      {c.glass && (
+        <LiquidGlassBackdrop dark={dark} preset={glassPreset} orbs={glassOrbs} neon={neon} neon2={neon2} />
       )}
       <div style={{ position:"relative", zIndex:1, display:"flex", width:"100%", height:"100%" }}>
       <style>{`
         ${glowOn?`@keyframes glow-pulse{0%,100%{box-shadow:0 0 8px ${neon};}50%{box-shadow:0 0 20px ${neon},0 0 40px ${neon2};}}`:""}
         @keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        .tool-btn:hover{background:${c.glass ? (c.glassBtnHover || c.accentBg) : c.accentBg}!important;${c.glass?'backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);':''}}
-        .tool-btn.active{background:${c.glass ? (c.glassBtn || c.accentBg) : c.accentBg}!important;border-color:${c.glass ? (c.glassBtnBorder || c.accent) : c.accent}!important;${c.glass?'backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);box-shadow:'+c.glassShadow+';':''}}
+        .tool-btn:hover{background:${c.glass ? (c.glassBtnHover || c.accentBg) : c.accentBg}!important;${c.glass?`backdrop-filter:blur(${glassBlur}px) saturate(210%);-webkit-backdrop-filter:blur(${glassBlur}px) saturate(210%);box-shadow:0 8px 20px rgba(0,0,0,0.16), inset 0 1.5px 1px rgba(255,255,255,0.65);border-color:${c.glassBtnBorder}!important;`:''}}
+        .tool-btn.active{background:${c.glass ? (c.glassBtn || c.accentBg) : c.accentBg}!important;border-color:${c.glass ? (c.glassBtnBorder || c.accent) : c.accent}!important;${c.glass?`backdrop-filter:blur(${glassBlur}px) saturate(210%);-webkit-backdrop-filter:blur(${glassBlur}px) saturate(210%);box-shadow:${c.glassShadow};`:''}}
         ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:${c.border};border-radius:2px;}
         input::placeholder,textarea::placeholder{color:${c.textHint};}
         button:active{transform:scale(0.97);}
@@ -498,7 +614,11 @@ const [screen, setScreen] = useState(() => {
       {/* Modali */}
       {settingsOpen && (
         <SettingsPanel
-          dark={dark} glowOn={glowOn} glass={glass} toggleDark={toggleDark} toggleGlow={toggleGlow} toggleGlass={toggleGlass}
+          dark={dark} glowOn={glowOn} glass={glass}
+          glassPreset={glassPreset} setGlassPreset={setGlassPreset}
+          glassBlur={glassBlur} setGlassBlur={setGlassBlur}
+          glassOrbs={glassOrbs} toggleGlassOrbs={toggleGlassOrbs}
+          toggleDark={toggleDark} toggleGlow={toggleGlow} toggleGlass={toggleGlass}
           neon={neon} neon2={neon2} setNeon={setNeon} setNeon2={setNeon2}
           bgDark={bgDark} setBgDark={setBgDark} bgLight={bgLight} setBgLight={setBgLight}
           timeout={timeout} setTimeout={setTimeoutVal}
@@ -517,11 +637,11 @@ const [screen, setScreen] = useState(() => {
 
       {/* ── SIDEBAR DESKTOP ── */}
       {!isMobile && (
-        <div className={c.glass?"glass-surface glass-edge":""} style={{ width:sideOpen?220:64, background:c.glass?c.glassSurface:c.surface, borderRight:c.glass?"none":`1px solid ${c.border}`, display:"flex", flexDirection:"column", transition:"width .3s", overflow:"hidden", flexShrink:0, ...(c.glass?{boxShadow:c.glassShadow, borderRight:`1px solid ${c.glassBtnBorder}`}:{}) }}>
+        <div className={c.glass?"glass-surface glass-edge":""} style={{ width:sideOpen?228:68, background:c.glass?c.glassSurface:c.surface, borderRight:c.glass?"none":`1px solid ${c.border}`, display:"flex", flexDirection:"column", transition:"width .3s", overflow:"hidden", flexShrink:0, ...(c.glass?{boxShadow:c.glassShadow, borderRight:`1px solid ${c.glassBtnBorder}`, backdropFilter:`blur(${glassBlur}px) saturate(215%)`, WebkitBackdropFilter:`blur(${glassBlur}px) saturate(215%)`}:{}) }}>
 
           {/* Header con Switcher App */}
           <div style={{ padding:"16px 12px", borderBottom:`1px solid ${c.border}`, display:"flex", alignItems:"center", gap:8, position: "relative" }}>
-            <div style={{ width:36, height:36, borderRadius:10, background:c.accentBg, border:`1px solid ${c.accent}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:glowS(neon,6), animation:glowOn?"glow-pulse 3s infinite":"none" }}>
+            <div className={c.glass ? (c.dark ? "glass-squircle-dark" : "glass-squircle") : ""} style={{ width:38, height:38, borderRadius:12, background:c.glass ? undefined : c.accentBg, border:c.glass ? undefined : `1px solid ${c.accent}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:c.glass ? undefined : glowS(neon,6), animation:glowOn && !c.glass?"glow-pulse 3s infinite":"none" }}>
               <img src={`${import.meta.env.BASE_URL}WorkfyLogo.png`} alt="logo" style={{ width:24, height:24, objectFit:"contain", borderRadius:4 }}/>
             </div>
             
@@ -537,13 +657,13 @@ const [screen, setScreen] = useState(() => {
               </div>
             )}
             
-            {sideOpen && <button onClick={()=>setSettingsOpen(true)} style={{ background:"transparent", border:`1px solid ${c.border}`, borderRadius:8, width:30, height:30, cursor:"pointer", color:c.textMuted, fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>⚙</button>}
+            {sideOpen && <button onClick={()=>setSettingsOpen(true)} className={c.glass?"glass-btn":""} style={{ background:c.glass?c.glassBtn:"transparent", border:`1px solid ${c.glass?c.glassBtnBorder:c.border}`, borderRadius:10, width:32, height:32, cursor:"pointer", color:c.text, fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>⚙</button>}
 
             {/* Popup Switcher */}
             {sideOpen && showAppSwitcher && (
               <>
                 <div onClick={() => setShowAppSwitcher(false)} style={{ position: "fixed", inset: 0, zIndex: 999 }} />
-                <div style={{ position: "absolute", top: 60, left: 12, width: 220, background: dark ? "#1a1a1a" : "#ffffff", border: `1px solid ${c.border}`, borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", zIndex: 1000, overflow: "hidden", animation: "fadeIn .2s ease" }}>
+                <div style={{ position: "absolute", top: 60, left: 12, width: 220, background: dark ? "#1a1a1a" : "#ffffff", border: `1px solid ${c.border}`, borderRadius: 14, boxShadow: "0 12px 36px rgba(0,0,0,0.45)", zIndex: 1000, overflow: "hidden", animation: "fadeIn .2s ease" }}>
                   <div style={{ padding: "8px 12px", fontSize: 11, color: c.textHint, letterSpacing: 1, borderBottom: `1px solid ${c.border}` }}>PASSA A</div>
                   
                   {/* Current App */}
@@ -586,7 +706,7 @@ const [screen, setScreen] = useState(() => {
               <div style={{ color:c.text, fontSize:13, marginTop:2, fontWeight:500 }}>{user.nome} {user.cognome}</div>
               <div style={{ color:c.textMuted, fontSize:11, marginTop:1, marginBottom:10 }}>{user.email}</div>
               <button onClick={()=>setActive("plus")}
-                style={{ width:"100%", padding:"8px 12px", borderRadius:10, border:`1.5px solid ${GOLD}88`, background:`linear-gradient(135deg,${GOLD}18,${GOLD2}0a)`, cursor:"pointer", display:"flex", alignItems:"center", gap:8, transition:"all .2s", boxShadow:active==="plus"?`0 0 14px ${GOLD}55`:"none" }}>
+                style={{ width:"100%", padding:"8px 12px", borderRadius:12, border:`1.5px solid ${GOLD}88`, background:`linear-gradient(135deg,${GOLD}22,${GOLD2}0e)`, cursor:"pointer", display:"flex", alignItems:"center", gap:8, transition:"all .2s", boxShadow:active==="plus"?`0 0 14px ${GOLD}55`:"none" }}>
                 <CrownIcon size={15} color={GOLD}/>
                 <span style={{ fontSize:12, fontWeight:700, background:`linear-gradient(90deg,${GOLD},${GOLD2})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", flex:1, textAlign:"left" }}>Workfy PLUS</span>
                 <span style={{ fontSize:9, padding:"2px 6px", borderRadius:8, background:`${GOLD}22`, color:GOLD, fontWeight:700, letterSpacing:.5 }}>PRESTO</span>
@@ -595,12 +715,12 @@ const [screen, setScreen] = useState(() => {
           )}
 
           {/* Strumenti */}
-          <div style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:4, overflowY:"auto" }}>
+          <div style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:5, overflowY:"auto" }}>
             {TOOLS.map(t => (
               <button key={t.id} onClick={()=>setActive(t.id)}
                 className={`tool-btn${active===t.id?" active":""}`}
-                style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, border:"1px solid transparent", background:"transparent", cursor:"pointer", color:active===t.id?c.accent:c.textMuted, fontSize:13, textAlign:"left", transition:"all .2s", width:"100%", fontWeight:active===t.id?"500":"400" }}>
-                <span style={{ fontSize:18, flexShrink:0 }}>{t.icon}</span>
+                style={{ display:"flex", alignItems:"center", gap:12, padding:c.glass?"8px 10px":"10px 12px", borderRadius:c.glass?14:10, border:"1px solid transparent", background:"transparent", cursor:"pointer", color:active===t.id?c.accent:c.textMuted, fontSize:13, textAlign:"left", transition:"all .2s", width:"100%", fontWeight:active===t.id?"600":"400" }}>
+                <span className={c.glass ? (c.dark ? "glass-squircle-dark" : "glass-squircle") : ""} style={c.glass ? { width:30, height:30, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 } : { fontSize:18, flexShrink:0 }}>{t.icon}</span>
                 {sideOpen && <span style={{ whiteSpace:"nowrap" }}>{t.label}</span>}
               </button>
             ))}
@@ -609,7 +729,7 @@ const [screen, setScreen] = useState(() => {
           {/* Footer sidebar */}
           <div style={{ padding:"10px 8px", borderTop:`1px solid ${c.border}` }}>
             {!sideOpen && <button onClick={()=>setSettingsOpen(true)} style={{ width:"100%", padding:"8px", borderRadius:8, border:`1px solid ${c.border}`, background:"transparent", cursor:"pointer", color:c.textMuted, fontSize:16, marginBottom:4 }}>⚙</button>}
-            <button onClick={()=>setSideOpen(!sideOpen)} style={{ width:"100%", padding:"8px", borderRadius:8, border:`1px solid ${c.border}`, background:"transparent", cursor:"pointer", color:c.textMuted, fontSize:12 }}>
+            <button onClick={()=>setSideOpen(!sideOpen)} className={c.glass?"glass-btn":""} style={{ width:"100%", padding:"8px", borderRadius:10, border:`1px solid ${c.glass?c.glassBtnBorder:c.border}`, background:c.glass?c.glassBtn:"transparent", cursor:"pointer", color:c.text, fontSize:12 }}>
               {sideOpen?"« Chiudi":"»"}
             </button>
           </div>
@@ -620,28 +740,33 @@ const [screen, setScreen] = useState(() => {
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
         {/* Header */}
-          <div className={c.glass?"glass-surface":""} style={{ padding:isMobile?"10px 16px":"14px 24px", borderBottom:c.glass?"none":`1px solid ${c.border}`, background:c.glass?c.glassSurface:c.headerBg, display:"flex", alignItems:"center", gap:12, flexShrink:0, ...(c.glass?{boxShadow:`inset 0 -1px 0 ${c.glassBtnBorder}`}:{}) }}>
+          <div className={c.glass?"glass-surface":""} style={{ padding:isMobile?"10px 16px":"14px 24px", borderBottom:c.glass?"none":`1px solid ${c.border}`, background:c.glass?c.headerBg:c.headerBg, display:"flex", alignItems:"center", gap:12, flexShrink:0, ...(c.glass?{boxShadow:`0 8px 24px rgba(0,0,0,0.12), inset 0 -1px 0 ${c.glassBtnBorder}`, backdropFilter:`blur(${glassBlur}px) saturate(210%)`, WebkitBackdropFilter:`blur(${glassBlur}px) saturate(210%)`}:{}) }}>
             {isMobile && (
               <div style={{ width:30, height:30, borderRadius:8, background:c.accentBg, border:`1px solid ${c.accent}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
                 <img src={`${import.meta.env.BASE_URL}WorkfyLogo.png`} alt="logo" style={{ width:20, height:20, objectFit:"contain" }}/>
               </div>
             )}
-            <span style={{ fontSize:isMobile?18:22 }}>{currentTool.icon}</span>
-            <span style={{ fontSize:isMobile?15:17, fontWeight:500, color:c.text }}>{currentTool.label}</span>
+            <span className={c.glass ? (c.dark ? "glass-squircle-dark" : "glass-squircle") : ""} style={c.glass ? { width:34, height:34, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 } : { fontSize:isMobile?18:22 }}>{currentTool.icon}</span>
+            <span style={{ fontSize:isMobile?15:17, fontWeight:600, color:c.text }}>{currentTool.label}</span>
+            {c.glass && (
+              <span style={{ fontSize:10, padding:"3px 10px", borderRadius:20, background:c.glassBtn, border:`1px solid ${c.glassBtnBorder}`, color:c.text, fontWeight:600, letterSpacing:0.5, boxShadow:"inset 0 1px 1px rgba(255,255,255,0.6)" }}>
+                ✨ LIQUID GLASS
+              </span>
+            )}
             <div style={{ flex:1 }}/>
             {isMobile && <button onClick={()=>setSettingsOpen(true)} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${c.border}`, background:"transparent", cursor:"pointer", color:c.textMuted, fontSize:16 }}>⚙</button>}
-            {!isMobile && <div style={{ fontSize:12, color:c.textHint }}>v1.0</div>}
+            {!isMobile && <div style={{ fontSize:12, color:c.textHint }}>v1.1</div>}
           </div>
 
         {/* Pannello principale */}
-          <div style={{ flex:1, overflow:"auto", background:c.surface, paddingBottom:bottomOffset }}>
+          <div style={{ flex:1, overflow:"auto", background:c.glass ? "transparent" : c.surface, paddingBottom:bottomOffset }}>
             {panels[active]}
           </div>
       </div>
 
       {/* ── NAVBAR MOBILE ── */}
       {isMobile && (
-        <div className={c.glass?"glass-surface glass-edge":""} style={{ position:"fixed", bottom:showMiniPlayer?56:0, left:0, right:0, zIndex:200, background: c.glass ? (c.dark?"rgba(15,15,15,0.45)":"rgba(255,255,255,0.45)") : (c.dark ? "rgba(10,10,10,0.95)" : "rgba(255,255,255,0.95)"), borderTop:c.glass?"none":`1px solid ${c.border}`, backdropFilter:c.glass?"blur(40px) saturate(250%)":"blur(12px)", display:"flex", alignItems:"center", height:64, paddingBottom:"env(safe-area-inset-bottom)", ...(c.glass?{boxShadow:"0 -4px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.25)"}:{}) }}>
+        <div className={c.glass?"glass-surface glass-edge":""} style={{ position:"fixed", bottom:showMiniPlayer?56:0, left:0, right:0, zIndex:200, background: c.glass ? c.glassSurface : (c.dark ? "rgba(10,10,10,0.95)" : "rgba(255,255,255,0.95)"), borderTop:c.glass?"none":`1px solid ${c.border}`, backdropFilter:c.glass?`blur(${glassBlur}px) saturate(230%)`:"blur(12px)", display:"flex", alignItems:"center", height:64, paddingBottom:"env(safe-area-inset-bottom)", ...(c.glass?{boxShadow:c.glassShadow}:{}) }}>
           {MOBILE_TABS.map(t => {
             const isActive = t.id!=="more" && active===t.id;
             return (

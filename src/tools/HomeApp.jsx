@@ -1,25 +1,36 @@
 import { useRef, useEffect } from "react";
 
 const FEATURES = [
-  { icon: "✏️", label: "Note",          desc: "Scrivi e organizza le tue note con stile. Titoli, formattazione e anteprima istantanea.",       color: "#7c3aed" },
-  { icon: "📊", label: "Foglio",         desc: "Fogli di calcolo con formule avanzate: SOMMA, MEDIA, MAX, MIN e molto altro.",                    color: "#0ea5e9" },
-  { icon: "🎨", label: "Disegno",        desc: "Canvas completo con penna, forme, frecce, testo e importazione immagini.",                       color: "#ec4899" },
-  { icon: "📐", label: "Slide",          desc: "Crea presentazioni con slide multiple, testi posizionabili e immagini di sfondo.",               color: "#f59e0b" },
-  { icon: "🧮", label: "Calcolatrice",   desc: "Modalità standard e scientifica con sin, cos, log, radici e cronologia dei calcoli.",             color: "#10b981" },
-  { icon: "⏱️", label: "Cronometro",     desc: "Cronometro con giri e timer con conto alla rovescia. Preciso al centesimo di secondo.",           color: "#6366f1" },
-  { icon: "🔄", label: "Convertitore",   desc: "Valute in tempo reale, lunghezza, peso, temperatura, area, velocità e volume.",                  color: "#f97316" },
-  { icon: "🖼️", label: "Editor Img",    desc: "Modifica le tue immagini con filtri, preset, rotazione e scaricale in alta qualità.",             color: "#14b8a6" },
-  { icon: "📄", label: "PDF / Word",     desc: "Visualizza file PDF e documenti Word direttamente nel browser, senza installare niente.",         color: "#8b5cf6" },
-  { icon: "📓", label: "Note PLUS",      desc: "Quaderni digitali con penna, evidenziatore, flashcard, registratore audio e sfondi personalizzati.", color: "#6366f1" },
+  { icon: "✏️", id: "note",         label: "Note",          desc: "Scrivi e organizza le tue note con stile. Titoli, formattazione e anteprima istantanea.",       color: "#3b82f6" },
+  { icon: "📊", id: "foglio",       label: "Foglio",         desc: "Fogli di calcolo con formule avanzate: SOMMA, MEDIA, MAX, MIN e molto altro.",                    color: "#0ea5e9" },
+  { icon: "🎨", id: "disegno",      label: "Disegno",        desc: "Canvas completo con penna, forme, frecce, testo e importazione immagini.",                       color: "#ec4899" },
+  { icon: "📐", id: "slide",        label: "Slide",          desc: "Crea presentazioni con slide multiple, testi posizionabili e immagini di sfondo.",               color: "#f59e0b" },
+  { icon: "🧮", id: "calc",         label: "Calcolatrice",   desc: "Modalità standard e scientifica con sin, cos, log, radici e cronologia dei calcoli.",             color: "#10b981" },
+  { icon: "⏱️", id: "cronometro",   label: "Cronometro",     desc: "Cronometro con giri e timer con conto alla rovescia. Preciso al centesimo di secondo.",           color: "#6366f1" },
+  { icon: "🔄", id: "convertitore", label: "Convertitore",   desc: "Valute in tempo reale, lunghezza, peso, temperatura, area, velocità e volume.",                  color: "#f97316" },
+  { icon: "🖼️", id: "imageeditor",  label: "Editor Img",    desc: "Modifica le tue immagini con filtri, preset, rotazione e scaricale in alta qualità.",             color: "#14b8a6" },
+  { icon: "📄", id: "pdfviewer",    label: "PDF / Word",     desc: "Visualizza file PDF e documenti Word direttamente nel browser, senza installare niente.",         color: "#a855f7" },
+  { icon: "📓", id: "noteplus",     label: "Note PLUS",      desc: "Quaderni digitali con penna, evidenziatore, flashcard, registratore audio e sfondi personalizzati.", color: "#ec4899" },
+];
+
+const GLASS_DOCK_ITEMS = [
+  { id: "note",        label: "Note",        icon: "✏️", glow: "#3b82f6" },
+  { id: "todo",        label: "Tasks",       icon: "✅", glow: "#10b981" },
+  { id: "foglio",      label: "Foglio",      icon: "📊", glow: "#0ea5e9" },
+  { id: "disegno",     label: "Disegno",     icon: "🎨", glow: "#f97316" },
+  { id: "slide",       label: "Slide",       icon: "📐", glow: "#f43f5e" },
+  { id: "calc",        label: "Calcola",     icon: "🧮", glow: "#ec4899" },
+  { id: "music",       label: "Musica",      icon: "🎵", glow: "#a855f7" },
+  { id: "imageeditor", label: "Editor Img",  icon: "🖼️", glow: "#38bdf8" },
 ];
 
 const WHY = [
-  { icon: "🔒", title: "Privato",        desc: "I tuoi dati restano sul tuo dispositivo. Nessun server, nessun tracciamento." },
-  { icon: "⚡", title: "Veloce",         desc: "Nessun caricamento, nessuna attesa. Tutto gira in locale, istantaneamente." },
-  { icon: "📱", title: "Ovunque",        desc: "Funziona su telefono, tablet e PC. Installabile come app dal browser." },
-  { icon: "🆓", title: "Gratis",         desc: "Nessun abbonamento, nessuna pubblicità, nessuna limitazione." },
-  { icon: "🎨", title: "Personalizzabile", desc: "Tema bianco e nero di base, con opzioni neon selezionabili nelle impostazioni." },
-  { icon: "🔧", title: "In crescita",    desc: "Nuove funzioni aggiunte continuamente. La tua suite si evolve con te." },
+  { icon: "🔒", title: "Privato",          desc: "I tuoi dati restano sul tuo dispositivo. Nessun server, nessun tracciamento." },
+  { icon: "⚡", title: "Veloce",           desc: "Nessun caricamento, nessuna attesa. Tutto gira in locale, istantaneamente." },
+  { icon: "📱", title: "Ovunque",          desc: "Funziona su telefono, tablet, PC e Mac. Installabile come app desktop o web." },
+  { icon: "🆓", title: "Gratis",           desc: "Nessun abbonamento, nessuna pubblicità, nessuna limitazione." },
+  { icon: "🎨", title: "Liquid Glass 3D",  desc: "Vetro smerigliato 3D stile Apple o tema bianco e nero ad alto contrasto." },
+  { icon: "🔧", title: "In crescita",      desc: "Nuove funzioni aggiunte continuamente. La tua suite si evolve con te." },
 ];
 
 function parseRgb(color) {
@@ -83,6 +94,7 @@ export default function HomeApp({ c, user, onNavigate }) {
   const isBW = c?.isBW !== false;
   const accent = c?.accent || "#ffffff";
   const accentText = c?.accentText || (dark ? "#000000" : "#ffffff");
+  const blurPx = c?.glassBlur || 34;
 
   const scrollCards = (dir) => {
     if (scrollRef.current) scrollRef.current.scrollBy({ left: dir * 300, behavior: "smooth" });
@@ -94,98 +106,216 @@ export default function HomeApp({ c, user, onNavigate }) {
       <style>{`
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
-        .feat-card:hover { transform: translateY(-5px) !important; box-shadow: ${c.glass ? '0 12px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15)' : '0 10px 30px rgba(0,0,0,0.3)'} !important; border-color: ${c.glass ? (c.dark?'rgba(255,255,255,0.2)':'rgba(0,0,0,0.12)') : c.accent} !important; }
-        .why-card:hover { border-color: ${c.glass ? (c.dark?'rgba(255,255,255,0.2)':'rgba(0,0,0,0.12)') : c.accent} !important; }
+        .feat-card:hover { transform: translateY(-6px) !important; box-shadow: ${c.glass ? '0 22px 48px rgba(0,0,0,0.28), inset 0 2px 1.5px rgba(255,255,255,0.85)' : '0 10px 30px rgba(0,0,0,0.3)'} !important; border-color: ${c.glass ? c.glassBtnBorder : c.accent} !important; }
+        .why-card:hover { transform: translateY(-3px); border-color: ${c.glass ? c.glassBtnBorder : c.accent} !important; }
+        .glass-dock-tile:hover { transform: translateY(-6px) scale(1.05) !important; }
         .feat-card { transition: transform .25s, box-shadow .25s, border-color .25s !important; }
-        .why-card { transition: border-color .25s, box-shadow .25s !important; }
+        .why-card { transition: transform .25s, border-color .25s, box-shadow .25s !important; }
       `}</style>
 
       {/* Hero */}
       <div style={{
-        position: "relative", minHeight: 340, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 24px 40px", overflow: "hidden",
-        background: dark
-          ? (isBW ? "linear-gradient(180deg, #000000 0%, #0c0c0c 100%)" : `linear-gradient(180deg, ${c.bg} 0%, rgba(${parseRgb(accent)},0.08) 100%)`)
-          : (isBW ? "linear-gradient(180deg, #ffffff 0%, #f4f4f5 100%)" : `linear-gradient(180deg, #ffffff 0%, rgba(${parseRgb(accent)},0.06) 100%)`),
-        borderBottom: `1px solid ${c.border}`,
+        position: "relative", minHeight: 340, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: c.glass ? "36px 24px 28px" : "60px 24px 40px", overflow: "hidden",
+        background: c.glass
+          ? "transparent"
+          : (dark
+              ? (isBW ? "linear-gradient(180deg, #000000 0%, #0c0c0c 100%)" : `linear-gradient(180deg, ${c.bg} 0%, rgba(${parseRgb(accent)},0.08) 100%)`)
+              : (isBW ? "linear-gradient(180deg, #ffffff 0%, #f4f4f5 100%)" : `linear-gradient(180deg, #ffffff 0%, rgba(${parseRgb(accent)},0.06) 100%)`)),
+        borderBottom: c.glass ? "none" : `1px solid ${c.border}`,
       }}>
-        <ParticlesBG color={accent} />
+        {!c.glass && <ParticlesBG color={accent} />}
 
-        {/* Cerchi decorativi sfumati */}
-        {!isBW && (
+        {/* Cerchi decorativi sfumati quando non è attivo glass */}
+        {!isBW && !c.glass && (
           <>
             <div style={{ position: "absolute", top: -60, right: -60, width: 300, height: 300, borderRadius: "50%", background: `radial-gradient(circle, rgba(${parseRgb(accent)},0.12) 0%, transparent 70%)`, pointerEvents: "none" }} />
             <div style={{ position: "absolute", bottom: -40, left: -40, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle, rgba(${parseRgb(accent)},0.08) 0%, transparent 70%)`, pointerEvents: "none" }} />
           </>
         )}
 
-        <div style={{ position: "relative", zIndex: 1, textAlign: "center", animation: "fadeUp .8s ease both" }}>
-          <div style={{ fontSize: 12, letterSpacing: 4, color: isBW ? c.textMuted : accent, marginBottom: 14, fontWeight: 600 }}>
-            BENVENUTO/A, {user?.nome?.toUpperCase()}
-          </div>
-          <h1 style={{ fontSize: "clamp(32px,6vw,54px)", fontWeight: 700, color: c.text, margin: "0 0 16px", lineHeight: 1.15 }}>
-            La tua suite di<br />
-            <span style={{
-              background: isBW
-                ? (dark ? "linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.7) 100%)" : "linear-gradient(180deg, #000000 0%, #444444 100%)")
-                : `linear-gradient(90deg, ${accent}, #a855f7)`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}>
-              produttività completa
-            </span>
-          </h1>
-          <p style={{ fontSize: 16, color: c.textMuted, maxWidth: 500, margin: "0 auto 28px", lineHeight: 1.7 }}>
-            Tutti gli strumenti essenziali per lavorare. Veloce, minimale e 100% offline-first.
-          </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <button onClick={() => onNavigate("note")} style={{
-              padding: "12px 28px", borderRadius: 30, border: "none",
-              background: accent, color: accentText, fontSize: 15, fontWeight: 600,
-              cursor: "pointer", boxShadow: isBW ? "0 4px 16px rgba(0,0,0,0.2)" : `0 0 20px ${accent}66`,
-              transition: "all .2s",
-            }}>
-              Inizia ora →
-            </button>
-            <button onClick={() => document.getElementById("features-section").scrollIntoView({ behavior: "smooth" })}
-              className={c.glass?"glass-btn":""} style={{ padding: "12px 28px", borderRadius: 30, border: `1.5px solid ${c.glass ? (c.dark?'rgba(255,255,255,0.15)':'rgba(0,0,0,0.1)') : c.border}`, background: c.glass ? (c.dark?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.4)') : "transparent", color: c.text, fontSize: 15, cursor: "pointer", transition: "all .2s", backdropFilter: c.glass ? 'blur(16px)' : 'none' }}>
-              Scopri di più
-            </button>
+        <div
+          className={c.glass ? "glass-card-3d glass-edge" : ""}
+          style={{
+            position: "relative",
+            zIndex: 1,
+            textAlign: "center",
+            animation: "fadeUp .8s ease both",
+            ...(c.glass
+              ? {
+                  maxWidth: 820,
+                  width: "100%",
+                  padding: "38px 32px 34px",
+                  borderRadius: 28,
+                  background: c.glassCard,
+                  border: `1.5px solid ${c.glassBorder}`,
+                  boxShadow: c.glassShadow,
+                  backdropFilter: `blur(${blurPx}px) saturate(220%)`,
+                  WebkitBackdropFilter: `blur(${blurPx}px) saturate(220%)`,
+                }
+              : {}),
+          }}
+        >
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div style={{ fontSize: 12, letterSpacing: 4, color: c.glass ? c.textMuted : (isBW ? c.textMuted : accent), marginBottom: 14, fontWeight: 600 }}>
+              BENVENUTO/A, {user?.nome?.toUpperCase() || "UTENTE"}
+            </div>
+            <h1 style={{ fontSize: "clamp(30px,5.5vw,50px)", fontWeight: 700, color: c.text, margin: "0 0 14px", lineHeight: 1.15 }}>
+              La tua suite di<br />
+              <span style={{
+                background: c.glass
+                  ? (dark
+                      ? "linear-gradient(90deg, #ffffff 0%, #bae6fd 50%, #f5d0fe 100%)"
+                      : "linear-gradient(90deg, #ffffff 0%, #e0f2fe 100%)")
+                  : (isBW
+                      ? (dark ? "linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.7) 100%)" : "linear-gradient(180deg, #000000 0%, #444444 100%)")
+                      : `linear-gradient(90deg, ${accent}, #a855f7)`),
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: c.glass && !dark && c.glassPreset === "orchid" ? c.text : "transparent",
+              }}>
+                produttività completa
+              </span>
+            </h1>
+            <p style={{ fontSize: 15, color: c.textMuted, maxWidth: 520, margin: "0 auto 26px", lineHeight: 1.7 }}>
+              Tutti gli strumenti essenziali per lavorare. Veloce, minimale e 100% offline-first.
+            </p>
+
+            {/* Se Liquid Glass è attivo: griglia 2x4 di icone Squircle 3D in vetro smerigliato (come Immagine 1) */}
+            {c.glass && (
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+                gap: 18,
+                maxWidth: 620,
+                margin: "0 auto 28px",
+                padding: "8px 4px",
+              }}>
+                {GLASS_DOCK_ITEMS.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => onNavigate(item.id)}
+                    className="glass-dock-tile"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 10,
+                      cursor: "pointer",
+                      transition: "transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)",
+                    }}
+                  >
+                    <div
+                      className={dark ? "glass-squircle-dark" : "glass-squircle"}
+                      style={{
+                        width: 68,
+                        height: 68,
+                        borderRadius: 20,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 30,
+                        position: "relative",
+                        boxShadow: `0 14px 28px -6px ${item.glow}44, inset 0 2px 2px rgba(255,255,255,0.88), inset 0 -2px 6px ${item.glow}33`,
+                      }}
+                    >
+                      <span style={{ filter: `drop-shadow(0 4px 8px ${item.glow}88)` }}>{item.icon}</span>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: c.text, letterSpacing: 0.2 }}>
+                      {item.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <button
+                onClick={() => onNavigate("note")}
+                className={c.glass ? "glass-btn" : ""}
+                style={{
+                  padding: "12px 30px", borderRadius: 30,
+                  border: c.glass ? `1.5px solid ${c.glassBtnBorder}` : "none",
+                  background: c.glass ? c.glassBtn : accent,
+                  color: c.glass ? c.text : accentText,
+                  fontSize: 15, fontWeight: 600,
+                  cursor: "pointer",
+                  boxShadow: c.glass ? c.glassShadow : (isBW ? "0 4px 16px rgba(0,0,0,0.2)" : `0 0 20px ${accent}66`),
+                  transition: "all .2s",
+                }}
+              >
+                Inizia ora →
+              </button>
+              <button
+                onClick={() => document.getElementById("features-section")?.scrollIntoView({ behavior: "smooth" })}
+                className={c.glass ? "glass-btn" : ""}
+                style={{
+                  padding: "12px 28px", borderRadius: 30,
+                  border: `1.5px solid ${c.glass ? c.glassBtnBorder : c.border}`,
+                  background: c.glass ? c.surface : "transparent",
+                  color: c.text, fontSize: 15, fontWeight: 500, cursor: "pointer", transition: "all .2s",
+                }}
+              >
+                Scopri di più
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Icone fluttuanti */}
-        <div style={{ position: "absolute", zIndex: 0, inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-          {["✏️","📊","🎨","📐","🧮","⏱️","🔄","🖼️","📄"].map((icon, i) => (
-            <div key={i} style={{
-              position: "absolute", fontSize: 22, opacity: 0.12,
-              left: `${8 + (i * 11)}%`, top: `${15 + (i % 3) * 25}%`,
-              animation: `float ${3 + i * 0.4}s ease-in-out ${i * 0.3}s infinite`,
-            }}>{icon}</div>
-          ))}
-        </div>
+        {/* Icone fluttuanti (solo modalità standard) */}
+        {!c.glass && (
+          <div style={{ position: "absolute", zIndex: 0, inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+            {["✏️","📊","🎨","📐","🧮","⏱️","🔄","🖼️","📄"].map((icon, i) => (
+              <div key={i} style={{
+                position: "absolute", fontSize: 22, opacity: 0.12,
+                left: `${8 + (i * 11)}%`, top: `${15 + (i % 3) * 25}%`,
+                animation: `float ${3 + i * 0.4}s ease-in-out ${i * 0.3}s infinite`,
+              }}>{icon}</div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Widgets strumenti scrollabili */}
-      <div id="features-section" style={{ padding: "40px 24px 24px" }}>
+      <div id="features-section" style={{ padding: "32px 24px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 600, color: c.text }}>I tuoi strumenti</div>
             <div style={{ fontSize: 13, color: c.textMuted, marginTop: 3 }}>Clicca su uno strumento per aprirlo</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => scrollCards(-1)} style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${c.border}`, background: c.surface, color: c.textMuted, cursor: "pointer", fontSize: 16 }}>‹</button>
-            <button onClick={() => scrollCards(1)}  style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${c.border}`, background: c.surface, color: c.textMuted, cursor: "pointer", fontSize: 16 }}>›</button>
+            <button onClick={() => scrollCards(-1)} className={c.glass?"glass-btn":""} style={{ width: 38, height: 38, borderRadius: "50%", border: `1.5px solid ${c.glass?c.glassBtnBorder:c.border}`, background: c.glass?c.glassBtn:c.surface, color: c.text, cursor: "pointer", fontSize: 16 }}>‹</button>
+            <button onClick={() => scrollCards(1)}  className={c.glass?"glass-btn":""} style={{ width: 38, height: 38, borderRadius: "50%", border: `1.5px solid ${c.glass?c.glassBtnBorder:c.border}`, background: c.glass?c.glassBtn:c.surface, color: c.text, cursor: "pointer", fontSize: 16 }}>›</button>
           </div>
         </div>
 
-        <div ref={scrollRef} style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 12, scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        <div ref={scrollRef} style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 14, scrollbarWidth: "none", msOverflowStyle: "none" }}>
           {FEATURES.map((f, i) => (
-            <div key={i} className={`feat-card${c.glass?' glass-edge':''}`} onClick={() => onNavigate(["note","foglio","disegno","slide","calc","cronometro","convertitore","imageeditor","pdfviewer","noteplus"][i])}
-              style={{ flexShrink: 0, width: 200, background: c.glass ? (c.dark?'rgba(255,255,255,0.05)':'rgba(255,255,255,0.5)') : c.surface, border: `1px solid ${c.glass?(c.dark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.06)'):c.border}`, borderRadius: 16, padding: 20, cursor: "pointer", position: "relative", overflow: "hidden", backdropFilter: c.glass?'blur(20px) saturate(180%)':'none', boxShadow: c.glass?(c.glassShadow||'none'):'none' }}>
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: isBW ? c.accentBg : `${f.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 14, border: `1px solid ${isBW ? c.border : f.color + "33"}` }}>{f.icon}</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: c.text, marginBottom: 8 }}>{f.label}</div>
-              <div style={{ fontSize: 12, color: c.textMuted, lineHeight: 1.6 }}>{f.desc}</div>
-              <div style={{ marginTop: 14, fontSize: 12, color: isBW ? c.text : f.color, fontWeight: 500 }}>Apri →</div>
+            <div key={i} className={`feat-card${c.glass?' glass-card-3d glass-edge':''}`} onClick={() => onNavigate(f.id)}
+              style={{
+                flexShrink: 0, width: 210,
+                background: c.glass ? c.glassCard : c.surface,
+                border: `1.5px solid ${c.glass ? c.glassBorder : c.border}`,
+                borderRadius: 22, padding: 20, cursor: "pointer", position: "relative", overflow: "hidden",
+                backdropFilter: c.glass ? `blur(${blurPx}px) saturate(215%)` : "none",
+                WebkitBackdropFilter: c.glass ? `blur(${blurPx}px) saturate(215%)` : "none",
+                boxShadow: c.glass ? c.glassShadow : "none",
+              }}>
+              <div style={{ position: "relative", zIndex: 1 }}>
+                <div
+                  className={c.glass ? (dark ? "glass-squircle-dark" : "glass-squircle") : ""}
+                  style={{
+                    width: 52, height: 52, borderRadius: 16,
+                    background: c.glass ? undefined : (isBW ? c.accentBg : `${f.color}18`),
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 25, marginBottom: 14,
+                    border: c.glass ? undefined : `1px solid ${isBW ? c.border : f.color + "33"}`,
+                    boxShadow: c.glass ? `0 10px 22px -6px ${f.color}55, inset 0 2px 2px rgba(255,255,255,0.85)` : undefined,
+                  }}
+                >
+                  <span style={c.glass ? { filter: `drop-shadow(0 3px 6px ${f.color}77)` } : undefined}>{f.icon}</span>
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: c.text, marginBottom: 8 }}>{f.label}</div>
+                <div style={{ fontSize: 12, color: c.textMuted, lineHeight: 1.6 }}>{f.desc}</div>
+                <div style={{ marginTop: 14, fontSize: 12, color: c.glass ? c.text : (isBW ? c.text : f.color), fontWeight: 600 }}>Apri →</div>
+              </div>
             </div>
           ))}
         </div>
@@ -199,11 +329,25 @@ export default function HomeApp({ c, user, onNavigate }) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
           {WHY.map((w, i) => (
-            <div key={i} className={`why-card${c.glass?' glass-edge':''}`}
-              style={{ background: c.glass ? (c.dark?'rgba(255,255,255,0.04)':'rgba(255,255,255,0.45)') : c.surface, border: `1px solid ${c.glass?(c.dark?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.06)'):c.border}`, borderRadius: 14, padding: "20px 18px", display: "flex", flexDirection: "column", gap: 10, backdropFilter: c.glass?'blur(20px) saturate(180%)':'none', boxShadow: c.glass?(c.glassShadow||'none'):'none' }}>
-              <div style={{ fontSize: 28 }}>{w.icon}</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: c.text }}>{w.title}</div>
-              <div style={{ fontSize: 13, color: c.textMuted, lineHeight: 1.6 }}>{w.desc}</div>
+            <div key={i} className={`why-card${c.glass?' glass-card-3d glass-edge':''}`}
+              style={{
+                background: c.glass ? c.glassCard : c.surface,
+                border: `1.5px solid ${c.glass ? c.glassBorder : c.border}`,
+                borderRadius: 20, padding: "20px 18px", display: "flex", flexDirection: "column", gap: 10,
+                backdropFilter: c.glass ? `blur(${blurPx}px) saturate(215%)` : "none",
+                WebkitBackdropFilter: c.glass ? `blur(${blurPx}px) saturate(215%)` : "none",
+                boxShadow: c.glass ? c.glassShadow : "none",
+              }}>
+              <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div
+                  className={c.glass ? (dark ? "glass-squircle-dark" : "glass-squircle") : ""}
+                  style={c.glass ? { width: 44, height: 44, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 } : { fontSize: 28 }}
+                >
+                  {w.icon}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: c.text }}>{w.title}</div>
+                <div style={{ fontSize: 13, color: c.textMuted, lineHeight: 1.6 }}>{w.desc}</div>
+              </div>
             </div>
           ))}
         </div>
